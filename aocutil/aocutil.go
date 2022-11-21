@@ -35,6 +35,11 @@ func Atoi(a string) int {
 	return E2(strconv.Atoi(a))
 }
 
+// Atof converts a string to a float, panicking if it fails.
+func Atof(a string) float64 {
+	return E2(strconv.ParseFloat(a, 64))
+}
+
 // SlidingWindow calls fn for each window of size n in slice.
 func SlidingWindow[T any](slice []T, size int, fn func([]T)) {
 	if size > len(slice) {

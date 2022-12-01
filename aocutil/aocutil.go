@@ -98,19 +98,25 @@ func MinMaxes[T constraints.Ordered](numbers []T) (min, max T) {
 }
 
 // Max returns the maximum of two numbers.
-func Max[T constraints.Ordered](i, j T) T {
-	if i > j {
-		return i
+func Max[T constraints.Ordered](vs ...T) T {
+	var max T
+	for _, v := range vs {
+		if v > max {
+			max = v
+		}
 	}
-	return j
+	return max
 }
 
 // Min returns the minimum of two numbers.
-func Min[T constraints.Ordered](i, j T) T {
-	if i > j {
-		return j
+func Min[T constraints.Ordered](vs ...T) T {
+	var min T
+	for _, v := range vs {
+		if v < min {
+			min = v
+		}
 	}
-	return i
+	return min
 }
 
 // Clamp returns the value clamped to the range [min, max].

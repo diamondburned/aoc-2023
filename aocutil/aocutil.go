@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/exp/constraints"
 
+	_ "github.com/davecgh/go-spew/spew"
 	_ "gonum.org/v1/gonum"
 )
 

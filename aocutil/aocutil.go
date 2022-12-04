@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	"golang.org/x/exp/constraints"
 
@@ -39,13 +40,71 @@ func SplitFileN(name, split string, n int) []string {
 }
 
 // Atoi converts a string to an int, panicking if it fails.
-func Atoi(a string) int {
-	return E2(strconv.Atoi(a))
+func Atoi[T constraints.Signed](a string) T {
+	v, err := strconv.ParseInt(a, 10, int(unsafe.Sizeof(T(0))*8))
+	Assertf(err == nil, "failed to parse int: %v", err)
+	return T(v)
+}
+
+// Atois converts a slice of strings to a slice of ints, panicking if it fails.
+func Atois[T constraints.Signed](a []string) []T {
+	return Transform(a, Atoi[T])
+}
+
+// Atou converts a string to an uint, panicking if it fails.
+func Atou[T constraints.Unsigned](a string) uint {
+	v, err := strconv.ParseUint(a, 10, int(unsafe.Sizeof(T(0))*8))
+	Assertf(err == nil, "failed to parse uint: %v", err)
+	return uint(v)
+}
+
+// Atous converts a slice of strings to a slice of uints, panicking if it fails.
+func Atous[T constraints.Unsigned](a []string) []uint {
+	return Transform(a, Atou[T])
 }
 
 // Atof converts a string to a float, panicking if it fails.
-func Atof(a string) float64 {
-	return E2(strconv.ParseFloat(a, 64))
+func Atof[T constraints.Float](a string) T {
+	return T(E2(strconv.ParseFloat(a, 64)))
+}
+
+// Atofs converts a slice of strings to a slice of floats, panicking if it
+// fails.
+func Atofs[T constraints.Float](a []string) []T {
+	return Transform(a, Atof[T])
+}
+
+// Transform transforms a slice of strings into another slice of strings.
+// It is also known as Map.
+func Transform[T1 any, T2 any](a []T1, f func(T1) T2) []T2 {
+	v := make([]T2, len(a))
+	for i, s := range a {
+		v[i] = f(s)
+	}
+	return v
+}
+
+// Filter filters a slice of strings into another slice of strings.
+func Filter[T any](a []T, f func(T) bool) []T {
+	v := make([]T, 0, len(a))
+	for _, s := range a {
+		if f(s) {
+			v = append(v, s)
+		}
+	}
+	return v
+}
+
+// FilterInplace filters a slice of strings in place. The given slice is
+// modified.
+func FilterInplace[T any](a []T, f func(T) bool) []T {
+	v := a[:0]
+	for _, s := range a {
+		if f(s) {
+			v = append(v, s)
+		}
+	}
+	return v
 }
 
 // SlidingWindow calls fn for each window of size n in slice.
@@ -384,7 +443,10 @@ func (s *Scanner) SetSplitter(scanner bufio.SplitFunc) {
 
 // Next returns the next token.
 func (s *Scanner) Next() bool {
-	return s.s.Scan()
+	for s.s.Scan() && s.Token() != "" {
+		return true
+	}
+	return false
 }
 
 // Token returns the current token.

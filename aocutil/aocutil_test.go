@@ -1,6 +1,7 @@
 package aocutil
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -106,4 +107,32 @@ func TestHeap(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTrim(t *testing.T) {
+	testTrim(t, trimLeft, []byte{0, 0, 1, 2, 3}, []byte{1, 2, 3}, 0)
+	testTrim(t, trimRight, []byte{1, 2, 3, 0, 0}, []byte{1, 2, 3}, 0)
+	testTrim(t, trimBoth, []byte{0, 1, 2, 3, 0}, []byte{1, 2, 3}, 0)
+	testTrim(t, trimBoth, []byte{1, 2, 3}, []byte{1, 2, 3}, 0)
+
+	testTrim(t, trimLeft, []int{0, 0, 1, 2, 3}, []int{1, 2, 3}, 0)
+	testTrim(t, trimRight, []int{1, 2, 3, 0, 0}, []int{1, 2, 3}, 0)
+	testTrim(t, trimBoth, []int{0, 1, 2, 3, 0}, []int{1, 2, 3}, 0)
+	testTrim(t, trimBoth, []int{1, 2, 3}, []int{1, 2, 3}, 0)
+}
+
+func testTrim[T comparable](t *testing.T, trimType trimType, in, expect []T, val T) {
+	t.Helper()
+	t.Run(fmt.Sprintf("%T-%s", val, trimType), func(t *testing.T) {
+		got := trim(in, val, trimType)
+		if !reflect.DeepEqual(got, expect) {
+			t.Fatalf(
+				"unexpected trim(%v, %v, %v):\n"+
+					"got    %#v\n"+
+					"expect %#v",
+				in, val, trimType,
+				got, expect,
+			)
+		}
+	})
 }

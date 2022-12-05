@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"container/heap"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -72,6 +73,79 @@ func Atof[T constraints.Float](a string) T {
 // fails.
 func Atofs[T constraints.Float](a []string) []T {
 	return Transform(a, Atof[T])
+}
+
+// Trim removes the value v from the beginning and end of the slice.
+func Trim[T comparable](slice []T, v T) []T {
+	return trim(slice, v, trimBoth)
+}
+
+// TrimLeft removes the value v from the beginning of the slice.
+func TrimLeft[T comparable](slice []T, v T) []T {
+	return trim(slice, v, trimLeft)
+}
+
+// TrimRight removes the value v from the end of the slice.
+func TrimRight[T comparable](slice []T, v T) []T {
+	return trim(slice, v, trimRight)
+}
+
+type trimType uint8
+
+const (
+	_ trimType = iota
+	trimLeft
+	trimRight
+	trimBoth
+)
+
+func (t trimType) String() string {
+	switch t {
+	case trimLeft:
+		return "left"
+	case trimRight:
+		return "right"
+	case trimBoth:
+		return "both"
+	default:
+		return fmt.Sprintf("trimType(%d)", t)
+	}
+}
+
+func trim[T comparable](slice []T, v T, trim trimType) []T {
+	switch v := any(v).(type) {
+	// Fast path.
+	case byte:
+		src := any(slice).([]byte)
+		var dst []byte
+		switch trim {
+		case trimLeft:
+			dst = bytes.TrimLeft(src, string(v))
+		case trimRight:
+			dst = bytes.TrimRight(src, string(v))
+		case trimBoth:
+			dst = bytes.Trim(src, string(v))
+		}
+		return any(dst).([]T)
+	default:
+		if trim == trimBoth || trim == trimLeft {
+			for i := 0; i < len(slice); i++ {
+				if slice[i] != v {
+					slice = slice[i:]
+					break
+				}
+			}
+		}
+		if trim == trimBoth || trim == trimRight {
+			for i := len(slice) - 1; i >= 0; i-- {
+				if slice[i] != v {
+					slice = slice[:i+1]
+					break
+				}
+			}
+		}
+		return slice
+	}
 }
 
 // Transform transforms a slice of strings into another slice of strings.

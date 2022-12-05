@@ -432,8 +432,15 @@ func NewScanner(r io.Reader) *Scanner {
 }
 
 // NewBytesScanner returns a new scanner for a byte slice.
-func NewBytesScanner(b []byte) *Scanner {
-	return NewScanner(bytes.NewReader(b))
+func NewBytesScanner[T []byte | string](b T) *Scanner {
+	var r io.Reader
+	switch b := any(b).(type) {
+	case []byte:
+		r = bytes.NewReader(b)
+	case string:
+		r = strings.NewReader(b)
+	}
+	return NewScanner(r)
 }
 
 // SetSplitter sets the split function for the underlying scanner.

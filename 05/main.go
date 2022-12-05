@@ -1,11 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"regexp"
 	"strings"
-	"unsafe"
 
 	"github.com/diamondburned/aoc-2022/aocutil"
 )
@@ -60,8 +58,25 @@ func main() {
 // https://regex101.com/r/HvS2Jx/1
 var crateRowRe = regexp.MustCompile(`(?:\[([A-Z])\] ?|    ?)`)
 
+// CrateStacks is a slice of crate stacks. It's aligned so that each CrateStack
+// slice is one vertical stack:
+//
+//    [A] [B] [C] [D] [E]
+//    [F] [G] [H] [I] [J]
+//     1   2   3   4   5
+//
+// Becomes:
+//
+//    [0]: [A] [F]
+//    [1]: [B] [G]
+//    [2]: [C] [H]
+//    [3]: [D] [I]
+//    [4]: [E] [J]
+//
 type CrateStacks []CrateStack
 
+// MustParseCrateStacks parses crate stacks from a string. It panics if the
+// string is invalid.
 func MustParseCrateStacks(input string) CrateStacks {
 	input = strings.Trim(input, "\n")
 	lines := strings.Split(input, "\n")
@@ -75,9 +90,9 @@ func MustParseCrateStacks(input string) CrateStacks {
 	// The number of rows will just be the line count excluding the last line.
 	rows := len(lines) - 1
 
-	matrix := make([][]Crate, rows)
-	for i := range matrix {
-		matrix[i] = make([]Crate, columns)
+	stacks := make([]CrateStack, rows)
+	for i := range stacks {
+		stacks[i] = make(CrateStack, columns)
 	}
 
 	for row, line := range lines[:len(lines)-1] {
@@ -87,21 +102,13 @@ func MustParseCrateStacks(input string) CrateStacks {
 
 		for col, match := range matches {
 			if match[1] != "" {
-				matrix[row][col] = Crate(match[1][0])
+				stacks[col][rows-row-1] = Crate(match[1][0])
 			}
 		}
 	}
 
-	stacks := make([]CrateStack, columns)
-	for col := 0; col < columns; col++ {
-		stacks[col] = make(CrateStack, rows)
-		for row := 0; row < rows; row++ {
-			stacks[col][rows-row-1] = matrix[row][col]
-		}
-	}
-
 	for i := range stacks {
-		stacks[i] = stacks[i].Trim()
+		stacks[i] = aocutil.Trim(stacks[i], 0)
 	}
 
 	return stacks
@@ -122,6 +129,7 @@ func (s CrateStacks) Move(p RearrangementProcedure, is9001 bool) {
 	}
 }
 
+// TopCrates returns the top crates of each stack.
 func (s CrateStacks) TopCrates() []Crate {
 	crates := make([]Crate, len(s))
 	for i, stack := range s {
@@ -139,6 +147,7 @@ func (s CrateStacks) Copy() CrateStacks {
 	return stacks
 }
 
+// CrateStack is a vertical stack of crates.
 type CrateStack []Crate
 
 // Pop pops the top n crates from the stack.
@@ -153,12 +162,6 @@ func (s *CrateStack) Pop(n int) []Crate {
 // Push pushes crates onto the stack.
 func (s *CrateStack) Push(crates []Crate) {
 	*s = append(*s, crates...)
-}
-
-func (s CrateStack) Trim() CrateStack {
-	b := (*[]byte)(unsafe.Pointer(&s))
-	*b = bytes.Trim(*b, "\x00")
-	return s
 }
 
 type Crate byte

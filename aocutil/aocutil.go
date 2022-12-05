@@ -443,10 +443,7 @@ func (s *Scanner) SetSplitter(scanner bufio.SplitFunc) {
 
 // Next returns the next token.
 func (s *Scanner) Next() bool {
-	for s.s.Scan() && s.Token() != "" {
-		return true
-	}
-	return false
+	return s.s.Scan()
 }
 
 // Token returns the current token.

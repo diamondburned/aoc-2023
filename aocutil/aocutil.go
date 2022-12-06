@@ -19,10 +19,17 @@ import (
 	_ "gonum.org/v1/gonum"
 )
 
-// Input reads the `input' file in the current directory and returns its
+// InputString reads the `input' file in the current directory and returns its
 // contents as a string.
-func Input() string {
+func InputString() string {
 	return ReadFile("input")
+}
+
+// InputBytes reads the `input' file in the current directory and returns its
+// contents as a byte slice.
+func InputBytes() []byte {
+	v := E2(os.ReadFile("input"))
+	return v
 }
 
 // ReadFile reads a file into a string, panicking if it fails.
@@ -160,6 +167,74 @@ func trim[T comparable](slice []T, v T, trim trimType) []T {
 	}
 }
 
+//
+// Have we gone too far?
+//
+
+func sliceAsBytes[T any](slice []T) []byte {
+	if len(slice) == 0 {
+		return nil
+	}
+	return unsafe.Slice((*byte)(unsafe.Pointer(&slice[0])), len(slice)*int(unsafe.Sizeof(slice[0])))
+}
+
+func valueAsBytes[T any](value *T) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(value)), unsafe.Sizeof(value))
+}
+
+// Count returns the number of times v appears in the slice.
+func Count[T comparable](slice []T, v T) int {
+	if b, ok := any(v).(byte); ok {
+		src := any(slice).([]byte)
+		return bytes.Count(src, []byte{b})
+	}
+
+	if unsafe.Sizeof(v) < 32 {
+		return bytes.Count(sliceAsBytes(slice), valueAsBytes(&v))
+	}
+
+	var count int
+	for _, x := range slice {
+		if x == v {
+			count++
+		}
+	}
+	return count
+}
+
+// Index returns the index of the first instance of v in slice, or -1 if v is
+// not in slice.
+func Index[T comparable](slice []T, v T) int {
+	if b, ok := any(v).(byte); ok {
+		src := any(slice).([]byte)
+		return bytes.IndexByte(src, b)
+	}
+
+	if unsafe.Sizeof(v) < 32 {
+		bslice := sliceAsBytes(slice)
+		bvalue := valueAsBytes(&v)
+
+		idx := bytes.Index(bslice, bvalue)
+		if idx == -1 {
+			return -1
+		}
+
+		return idx / len(bvalue)
+	}
+
+	for i, x := range slice {
+		if x == v {
+			return i
+		}
+	}
+	return -1
+}
+
+// Contains returns true if the slice contains the value.
+func Contains[T comparable](slice []T, v T) bool {
+	return Index(slice, v) != -1
+}
+
 // Transform transforms a slice of strings into another slice of strings.
 // It is also known as Map.
 func Transform[T1 any, T2 any](a []T1, f func(T1) T2) []T2 {
@@ -195,9 +270,12 @@ func FilterInplace[T any](a []T, f func(T) bool) []T {
 
 // SlidingWindow calls fn for each window of size n in slice. If fn returns
 // true, then the function will break.
-func SlidingWindow[T any](slice []T, size int, fn func([]T) bool) {
+func SlidingWindow[T any](slice []T, size int, fn func([]T) bool) int {
 	if size > len(slice) {
-		return
+		log.Panicf(
+			"SlidingWindow: size %d is larger than slice length %d",
+			size, len(slice),
+		)
 	}
 
 	for n := range slice {
@@ -205,9 +283,11 @@ func SlidingWindow[T any](slice []T, size int, fn func([]T) bool) {
 			break
 		}
 		if fn(slice[n : n+size]) {
-			break
+			return n
 		}
 	}
+
+	return -1
 }
 
 // Chunk splits a slice into chunks of size n, calling fn for each chunk.
@@ -372,6 +452,21 @@ func SortReverse[T constraints.Ordered](slice []T) {
 	})
 }
 
+// IsSorted returns true if the slice is sorted.
+func IsSorted[T constraints.Ordered](slice []T) bool {
+	return sort.IsSorted(internalHeap[T]{
+		heap: slice,
+	})
+}
+
+// IsReverseSorted returns true if the slice is sorted in reverse order.
+func IsReverseSorted[T constraints.Ordered](slice []T) bool {
+	return sort.IsSorted(internalHeap[T]{
+		heap: slice,
+		opts: HeapOpts[T]{Max: true},
+	})
+}
+
 // Uniq returns a slice with all duplicate elements removed. It sorts the slice
 // before doing so.
 func Uniq[T constraints.Ordered](slice []T) []T {
@@ -386,6 +481,39 @@ func Uniq[T constraints.Ordered](slice []T) []T {
 	}
 
 	return slice[:cursor+1]
+}
+
+// IsUniq returns true if the slice has no duplicate elements.
+func IsUniq[T constraints.Ordered](slice []T) bool {
+	// See aocutil_test.go's BenchmarkIsUniq. We pick 100 because it's the sweet
+	// spot. Beyond 100, allocating a map is faster.
+	const bruteforceThreshold = 100
+	var z T
+	if len(slice)*int(unsafe.Sizeof(z)) < bruteforceThreshold {
+		return isUniqBruteforce(slice)
+	}
+	return isUniqSet(slice)
+}
+
+func isUniqBruteforce[T comparable](slice []T) bool {
+	for i, v := range slice {
+		if Contains(slice[i+1:], v) {
+			return false
+		}
+	}
+	return true
+}
+
+func isUniqSet[T comparable](slice []T) bool {
+	set := make(map[T]struct{}, len(slice))
+	for _, v := range slice {
+		_, ok := set[v]
+		if ok {
+			return false
+		}
+		set[v] = struct{}{}
+	}
+	return true
 }
 
 // Heap is a heap of ordered values.

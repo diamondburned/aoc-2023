@@ -81,13 +81,13 @@ func TestHeap(t *testing.T) {
 			name: "min_limit",
 			opts: HeapOpts[int]{Limit: 3},
 			in:   []int{3, 5, 1, 4, 2},
-			out:  []int{1, 2, 3},
+			out:  []int{3, 2, 1},
 		},
 		{
 			name: "max_limit",
-			opts: HeapOpts[int]{Max: true, Limit: 3},
+			opts: HeapOpts[int]{Limit: 3, Max: true},
 			in:   []int{3, 5, 1, 4, 2},
-			out:  []int{5, 4, 3},
+			out:  []int{3, 4, 5},
 		},
 	}
 
@@ -98,12 +98,47 @@ func TestHeap(t *testing.T) {
 				h.Push(v)
 			}
 
+			h.Sort()
 			t.Logf("heap: %v", h.ToSlice())
 
 			for _, v := range test.out {
 				if h.Pop() != v {
 					t.Errorf("mismatch: %v", h)
 				}
+			}
+		})
+	}
+}
+
+func TestSort(t *testing.T) {
+	type test struct {
+		in  []int
+		out []int
+		rev bool
+	}
+
+	tests := []test{
+		{[]int{1, 2, 3, 4, 5}, []int{1, 2, 3, 4, 5}, false},
+		{[]int{5, 4, 3, 2, 1}, []int{1, 2, 3, 4, 5}, false},
+		{[]int{3, 5, 1, 4, 2}, []int{1, 2, 3, 4, 5}, false},
+		{[]int{1, 2, 3, 4, 5}, []int{5, 4, 3, 2, 1}, true},
+		{[]int{5, 4, 3, 2, 1}, []int{5, 4, 3, 2, 1}, true},
+		{[]int{3, 5, 1, 4, 2}, []int{5, 4, 3, 2, 1}, true},
+	}
+
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("test%d", i), func(t *testing.T) {
+			input := append([]int(nil), test.in...)
+			if test.rev {
+				SortReverse(input)
+			} else {
+				Sort(input)
+			}
+			if !reflect.DeepEqual(input, test.out) {
+				t.Errorf("unexpected Sort(%#v):\n"+
+					"got    %#v\n"+
+					"expect %#v",
+					test.in, input, test.out)
 			}
 		})
 	}

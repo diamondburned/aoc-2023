@@ -342,6 +342,21 @@ func FieldsN(s string, n int) []string {
 	return parts
 }
 
+// Sort sorts a slice of strings.
+func Sort[T constraints.Ordered](slice []T) {
+	sort.Sort(internalHeap[T]{
+		heap: slice,
+	})
+}
+
+// SortReverse sorts a slice of strings in reverse order.
+func SortReverse[T constraints.Ordered](slice []T) {
+	sort.Sort(internalHeap[T]{
+		heap: slice,
+		opts: HeapOpts[T]{Max: true},
+	})
+}
+
 // Heap is a heap of ordered values.
 type Heap[T constraints.Ordered] internalHeap[T]
 
@@ -355,7 +370,8 @@ type HeapOpts[T constraints.Ordered] struct {
 	// Cap is the preallocated capacity of the heap.
 	Cap int
 	// Limit determines the behavior of Push when the heap is full. A zero-value
-	// sets no limit.
+	// sets no limit. If Max is true, the smallest value will be dropped. If Max
+	// is false, the largest value will be dropped.
 	Limit int
 }
 
@@ -405,6 +421,13 @@ func NewMaxHeap[T constraints.Ordered]() *Heap[T] {
 
 // NewHeapOpts creates a new heap with options.
 func NewHeapOpts[T constraints.Ordered](opts HeapOpts[T]) *Heap[T] {
+	if opts.Limit > 0 {
+		// Weird hack where if Limit > 0, we'll actually drop the smallest
+		// value for a min heap, which is weird. I'm not sure why this happens,
+		// but oh well.
+		opts.Max = !opts.Max
+	}
+
 	slice := make([]T, 0, opts.Cap)
 	h := internalHeap[T]{
 		heap: slice,
@@ -423,9 +446,8 @@ func (h *Heap[T]) Push(v T) {
 
 	min := h.heap[0]
 	if h.opts.more(v, min) {
-		x := h.Pop()
+		h.Pop()
 		heap.Push((*internalHeap[T])(h), v)
-		log.Println("heap limit exceeded, popped", x, "for", v)
 	}
 }
 
@@ -444,19 +466,13 @@ func (h *Heap[T]) Len() int {
 	return len(h.heap)
 }
 
-// Sort sorts the heap.
+// Sort sorts the internal heap slice
 func (h *Heap[T]) Sort() {
 	sort.Sort((*internalHeap[T])(h))
 }
 
-// ToSlice returns the underlying heap slice.
+// ToSlice returns the underlying heap slice. The returned slice is not sorted.
 func (h *Heap[T]) ToSlice() []T {
-	return h.heap
-}
-
-// ToSortedSlice returns a sorted slice of the heap.
-func (h *Heap[T]) ToSortedSlice() []T {
-	h.Sort()
 	return h.heap
 }
 

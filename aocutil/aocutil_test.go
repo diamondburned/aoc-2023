@@ -11,11 +11,12 @@ func TestSlidingWindow(t *testing.T) {
 	var res = [][]int{{0, 1}, {1, 2}, {2, 3}, {3, 4}}
 	var turn int
 
-	SlidingWindow(num, 2, func(w []int) {
+	SlidingWindow(num, 2, func(w []int) bool {
 		if !reflect.DeepEqual(res[turn], w) {
 			t.Errorf("mismatch at %d: %v", turn, w)
 		}
 		turn++
+		return false
 	})
 }
 
@@ -136,6 +137,34 @@ func TestSort(t *testing.T) {
 			}
 			if !reflect.DeepEqual(input, test.out) {
 				t.Errorf("unexpected Sort(%#v):\n"+
+					"got    %#v\n"+
+					"expect %#v",
+					test.in, input, test.out)
+			}
+		})
+	}
+}
+
+func TestUniq(t *testing.T) {
+	type test struct {
+		in  []int
+		out []int
+	}
+
+	tests := []test{
+		{[]int{1, 2, 3, 4, 5}, []int{1, 2, 3, 4, 5}},
+		{[]int{5, 4, 3, 2, 1}, []int{1, 2, 3, 4, 5}},
+		{[]int{1, 1, 2, 2, 3, 4, 5}, []int{1, 2, 3, 4, 5}},
+		{[]int{5, 4, 3, 2, 1, 1, 1}, []int{1, 2, 3, 4, 5}},
+		{[]int{1, 2, 3, 4, 5, 5, 4, 3, 2, 1}, []int{1, 2, 3, 4, 5}},
+	}
+
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("test%d", i), func(t *testing.T) {
+			input := append([]int(nil), test.in...)
+			input = Uniq(input)
+			if !reflect.DeepEqual(input, test.out) {
+				t.Errorf("unexpected Uniq(%#v):\n"+
 					"got    %#v\n"+
 					"expect %#v",
 					test.in, input, test.out)

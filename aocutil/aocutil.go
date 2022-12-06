@@ -19,6 +19,12 @@ import (
 	_ "gonum.org/v1/gonum"
 )
 
+// Input reads the `input' file in the current directory and returns its
+// contents as a string.
+func Input() string {
+	return ReadFile("input")
+}
+
 // ReadFile reads a file into a string, panicking if it fails.
 func ReadFile(name string) string {
 	v := E2(os.ReadFile(name))
@@ -38,6 +44,12 @@ func SplitFileN(name, split string, n int) []string {
 	parts := strings.SplitN(f, split, n)
 	Assertf(len(parts) == n, "expected %d parts, got %d", n, len(parts))
 	return parts
+}
+
+// SplitLine splits a line into parts, trimming trailing new lines.
+func SplitLine(s string) []string {
+	s = strings.Trim(s, "\n")
+	return strings.Split(s, "\n")
 }
 
 // Atoi converts a string to an int, panicking if it fails.
@@ -181,8 +193,9 @@ func FilterInplace[T any](a []T, f func(T) bool) []T {
 	return v
 }
 
-// SlidingWindow calls fn for each window of size n in slice.
-func SlidingWindow[T any](slice []T, size int, fn func([]T)) {
+// SlidingWindow calls fn for each window of size n in slice. If fn returns
+// true, then the function will break.
+func SlidingWindow[T any](slice []T, size int, fn func([]T) bool) {
 	if size > len(slice) {
 		return
 	}
@@ -191,7 +204,9 @@ func SlidingWindow[T any](slice []T, size int, fn func([]T)) {
 		if n+size > len(slice) {
 			break
 		}
-		fn(slice[n : n+size])
+		if fn(slice[n : n+size]) {
+			break
+		}
 	}
 }
 
@@ -355,6 +370,22 @@ func SortReverse[T constraints.Ordered](slice []T) {
 		heap: slice,
 		opts: HeapOpts[T]{Max: true},
 	})
+}
+
+// Uniq returns a slice with all duplicate elements removed. It sorts the slice
+// before doing so.
+func Uniq[T constraints.Ordered](slice []T) []T {
+	Sort(slice)
+
+	cursor := 0
+	for i := 1; i < len(slice); i++ {
+		if slice[i] != slice[i-1] {
+			cursor++
+			slice[cursor] = slice[i]
+		}
+	}
+
+	return slice[:cursor+1]
 }
 
 // Heap is a heap of ordered values.

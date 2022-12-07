@@ -706,3 +706,19 @@ func (s *Scanner) Next() bool {
 func (s *Scanner) Token() string {
 	return s.s.Text()
 }
+
+// Pair is a pair of values.
+type Pair[K comparable, V any] struct {
+	K K
+	V V
+}
+
+// MapPairs converts a map to a slice of pairs. The order of the pairs is
+// undefined.
+func MapPairs[K comparable, V any](m map[K]V) []Pair[K, V] {
+	pairs := make([]Pair[K, V], 0, len(m))
+	for k, v := range m {
+		pairs = append(pairs, Pair[K, V]{K: k, V: v})
+	}
+	return pairs
+}

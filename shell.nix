@@ -4,12 +4,20 @@ let ov = self: super: {
 
 in { pkgs ? import <nixpkgs> { overlays = [ ov ]; } }:
 
-pkgs.mkShell {
+let inputpaste = pkgs.writeShellScriptBin "inputpaste" ''
+	set -e
+	wl-paste > input
+	echo Pasted to ./input:
+	head -n10 input
+'';
+
+in pkgs.mkShell {
 	buildInputs = with pkgs; [
 		go
 		gopls
 		gotools
 		zls
 		zig
+		inputpaste
 	];
 }

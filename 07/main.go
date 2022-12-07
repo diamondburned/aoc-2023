@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/diamondburned/aoc-2022/aocutil"
 )
 
@@ -24,8 +23,6 @@ func main() {
 	var inputCommand bool
 
 	for _, line := range lines {
-		log.Println("line:", line)
-
 		if strings.HasPrefix(line, "$ ") {
 			current.Execution.Output = current.Output.String()
 			current.Execution = Execution{}
@@ -47,7 +44,6 @@ func main() {
 				inputCommand = true
 				aocutil.Assertf(len(argv) == 1, "cd: expected 1 argument, got %d", len(argv))
 				pwd = pwd.Enter(argv[0])
-				log.Printf("cd: pwd = %q", pwd)
 			default:
 				log.Fatalf("unknown command: %v", arg0)
 			}
@@ -59,7 +55,6 @@ func main() {
 		case Command_ls:
 			if strings.HasPrefix(line, "dir ") {
 				name := strings.TrimPrefix(line, "dir ")
-				log.Printf("mkdir: %q", pwd)
 				root.Mkdir(pwd.Enter(name))
 				continue
 			}
@@ -76,8 +71,9 @@ func main() {
 	}
 
 	{
+		fmt.Println("Day 1:")
+
 		maxSizePaths := walkMaxSize(&root.Folder, 100_000)
-		fmt.Println("max size paths:", maxSizePaths)
 
 		var maxSizePathSum int64
 		for _, size := range maxSizePaths {
@@ -88,6 +84,8 @@ func main() {
 	}
 
 	{
+		fmt.Println("Day 2:")
+
 		op := DeleteOp{
 			DiskAvailable: 70_000_000,
 			DiskMinUnused: 30_000_000,
@@ -142,7 +140,6 @@ func (op DeleteOp) Do(dir *Folder) (deleted Path, ok bool) {
 
 	var pwd Path
 	op.doRec(dir, pwd)
-	spew.Dump(op.candidates)
 
 	if len(op.candidates) == 0 {
 		return Path{}, false
@@ -163,9 +160,7 @@ func (op DeleteOp) Do(dir *Folder) (deleted Path, ok bool) {
 	})
 
 	candidate := candidates[0]
-	spew.Dump(candidate)
-	deleted = deleted.Enter(candidate.path)
-	return deleted, true
+	return ParsePath(candidate.path), true
 }
 
 func (op *DeleteOp) doRec(dir *Folder, pwd Path) {
@@ -178,7 +173,6 @@ func (op *DeleteOp) doRec(dir *Folder, pwd Path) {
 		pwd := pwd.Enter(file.Name())
 
 		if op.currentSize-folder.Size() <= op.requiredSize {
-			log.Println("found candidate:", pwd)
 			op.candidates[pwd.String()] = folder.Size()
 		}
 
@@ -210,11 +204,9 @@ func (fs *Filesystem) Mkdir(fsPath Path) *Folder {
 	var ok bool
 
 	for _, part := range fsPath {
-		log.Println("mkdir:", part)
 		child := root.Stat(part)
 		if child == nil {
 			child = &Folder{File: File{name: part}}
-			log.Printf("mkdir: created %#v", child)
 			root.Files = append(root.Files, child)
 		}
 		root, ok = child.(*Folder)
@@ -280,6 +272,11 @@ func (f *File) Size() int64  { return f.size }
 
 type Path []string
 
+func ParsePath(str string) Path {
+	var path Path
+	return path.Enter(str)
+}
+
 func (p Path) Copy() Path { return append(Path(nil), p...) }
 
 func (p Path) Enter(in string) Path {
@@ -288,8 +285,11 @@ func (p Path) Enter(in string) Path {
 	}
 
 	if strings.HasPrefix(in, "/") {
+		if in == "/" {
+			return Path{}
+		}
 		in = strings.TrimPrefix(in, "/")
-		return Path(strings.Split(in, "/")[1:])
+		return Path(strings.Split(in, "/"))
 	}
 
 	parts := strings.Split(in, "/")

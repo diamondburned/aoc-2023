@@ -71,7 +71,7 @@ func main() {
 	}
 
 	{
-		fmt.Println("Day 1:")
+		fmt.Print("Part 1: ")
 
 		maxSizePaths := walkMaxSize(&root.Folder, 100_000)
 
@@ -84,7 +84,7 @@ func main() {
 	}
 
 	{
-		fmt.Println("Day 2:")
+		fmt.Print("Part 2: ")
 
 		op := DeleteOp{
 			DiskAvailable: 70_000_000,
@@ -114,13 +114,13 @@ func walkMaxSizeRec(f *Folder, threshold int64, path Path, out map[string]int64)
 			continue
 		}
 
+		pwd := path.Enter(file.Name())
 		sum := file.Size()
 		if sum <= threshold {
-			pwd := path.Enter(file.Name())
 			out[pwd.String()] = sum
 		}
 
-		walkMaxSizeRec(folder, threshold, path.Enter(file.Name()), out)
+		walkMaxSizeRec(folder, threshold, pwd, out)
 	}
 }
 
@@ -145,22 +145,13 @@ func (op DeleteOp) Do(dir *Folder) (deleted Path, ok bool) {
 		return Path{}, false
 	}
 
-	type cand struct {
-		path string
-		size int64
-	}
-
-	candidates := make([]cand, 0, len(op.candidates))
-	for path, size := range op.candidates {
-		candidates = append(candidates, cand{path, size})
-	}
-
+	candidates := aocutil.MapPairs(op.candidates)
 	sort.Slice(candidates, func(i, j int) bool {
-		return candidates[i].size < candidates[j].size
+		return candidates[i].V < candidates[j].V
 	})
 
 	candidate := candidates[0]
-	return ParsePath(candidate.path), true
+	return ParsePath(candidate.K), true
 }
 
 func (op *DeleteOp) doRec(dir *Folder, pwd Path) {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 
 	"github.com/diamondburned/aoc-2022/aocutil"
 )
@@ -107,32 +108,37 @@ func (r Rope) PrintMap(w io.Writer, min, max Pt) {
 		min.Y = aocutil.Min2(min.Y, pt.Y)
 	}
 
-	// Iterate y backwards here, since we're printing the top line first.
-	// Iterate x as usual.
-	for y := max.Y; y >= min.Y; y-- {
-		for x := min.X; x <= max.X; x++ {
-			// This can be improved, but it's plenty fast.
-			for i, pt := range r {
-				if pt.X == x && pt.Y == y {
-					switch {
-					case i == 0:
-						io.WriteString(w, "H")
-					case len(r) == 2:
-						io.WriteString(w, "T")
-					default:
-						fmt.Fprintf(w, "%d", i)
-					}
-					goto next
-				}
-			}
+	mapb := make([][]byte, max.Y-min.Y+1)
+	for i := range mapb {
+		mapb[i] = make([]byte, max.X-min.X+1)
+		for j := range mapb[i] {
+			x := j + min.X
+			y := i + min.Y
 			if x == 0 && y == 0 {
-				io.WriteString(w, "s")
+				mapb[i][j] = 's'
 			} else {
-				io.WriteString(w, ".")
+				mapb[i][j] = '.'
 			}
-		next:
 		}
-		w.Write([]byte("\n"))
+	}
+
+	for i, pt := range r {
+		var char byte
+		switch {
+		case i == 0:
+			char = 'H'
+		case len(r) == 2:
+			char = 'T'
+		default:
+			v := strconv.Itoa(i)
+			char = v[0]
+		}
+		mapb[pt.Y-min.Y][pt.X-min.X] = char
+	}
+
+	for i := len(mapb) - 1; i >= 0; i-- {
+		w.Write(mapb[i])
+		w.Write([]byte{'\n'})
 	}
 }
 

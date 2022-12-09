@@ -59,6 +59,12 @@ func SplitLines(s string) []string {
 	return strings.Split(s, "\n")
 }
 
+// Sscanf is a wrapper around fmt.Sscanf that panics on error.
+func Sscanf(s string, format string, args ...interface{}) {
+	_, err := fmt.Sscanf(s, format, args...)
+	Assertf(err == nil, "Sscanf(%q, %q, ...): %v", s, format, err)
+}
+
 // Atoi converts a string to an int, panicking if it fails.
 func Atoi[T constraints.Signed](a string) T {
 	v, err := strconv.ParseInt(a, 10, int(unsafe.Sizeof(T(0))*8))
@@ -378,6 +384,14 @@ func Clamp[T constraints.Ordered](n, min, max T) T {
 	}
 	if n < min {
 		return min
+	}
+	return n
+}
+
+// Abs returns the absolute value of n.
+func Abs[T constraints.Integer | constraints.Float](n T) T {
+	if n < 0 {
+		return -n
 	}
 	return n
 }
@@ -722,3 +736,26 @@ func MapPairs[K comparable, V any](m map[K]V) []Pair[K, V] {
 	}
 	return pairs
 }
+
+// Set is a set of values.
+type Set[T comparable] map[T]struct{}
+
+// NewSet returns a new set.
+func NewSet[T comparable](cap int) Set[T] {
+	return make(Set[T], cap)
+}
+
+// Add adds the given value to the set.
+func (s Set[T]) Add(v T) { s[v] = struct{}{} }
+
+// Delete deletes the given value from the set.
+func (s Set[T]) Delete(v T) { delete(s, v) }
+
+// Has returns true if the set contains the given value.
+func (s Set[T]) Has(v T) bool {
+	_, ok := s[v]
+	return ok
+}
+
+// Reset resets the set.
+func (s *Set[T]) Reset() { *s = make(Set[T], len(*s)) }

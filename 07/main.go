@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 
@@ -12,46 +11,29 @@ import (
 func main() {
 	var root Filesystem
 	var pwd Path
+	var cmd Command
 
 	input := aocutil.InputString()
 	lines := aocutil.SplitLines(input)
 
-	var current struct {
-		Output strings.Builder
-		Execution
-	}
-	var inputCommand bool
-
 	for _, line := range lines {
 		if strings.HasPrefix(line, "$ ") {
-			current.Execution.Output = current.Output.String()
-			current.Execution = Execution{}
-			inputCommand = true
-		}
-
-		if inputCommand {
 			line = strings.TrimPrefix(line, "$ ")
 			parts := strings.Fields(line)
-			arg0 := Command(parts[0])
+
+			cmd = Command(parts[0])
 			argv := parts[1:]
 
-			switch arg0 {
-			case Command_ls:
-				inputCommand = false
-				current.Execution.Command.Arg0 = arg0
-				current.Execution.Command.Argv = argv
+			switch cmd {
 			case Command_cd:
-				inputCommand = true
 				aocutil.Assertf(len(argv) == 1, "cd: expected 1 argument, got %d", len(argv))
 				pwd = pwd.Enter(argv[0])
-			default:
-				log.Fatalf("unknown command: %v", arg0)
 			}
 
 			continue
 		}
 
-		switch current.Execution.Command.Arg0 {
+		switch cmd {
 		case Command_ls:
 			if strings.HasPrefix(line, "dir ") {
 				name := strings.TrimPrefix(line, "dir ")
@@ -91,13 +73,14 @@ func main() {
 			DiskMinUnused: 30_000_000,
 		}
 
-		path, ok := op.Do(&root.Folder)
+		path, size, ok := op.Do(&root.Folder)
 		if !ok {
 			fmt.Println("found no path to delete")
 			return
 		}
 
-		fmt.Println("found path to delete:", path)
+		fmt.Printf("found path to delete: %s (%d)", path, size)
+		fmt.Println()
 	}
 }
 
@@ -133,7 +116,7 @@ type DeleteOp struct {
 	candidates   map[string]int64
 }
 
-func (op DeleteOp) Do(dir *Folder) (deleted Path, ok bool) {
+func (op DeleteOp) Do(dir *Folder) (Path, int64, bool) {
 	op.currentSize = dir.Size()
 	op.requiredSize = op.DiskAvailable - op.DiskMinUnused
 	op.candidates = make(map[string]int64)
@@ -142,7 +125,7 @@ func (op DeleteOp) Do(dir *Folder) (deleted Path, ok bool) {
 	op.doRec(dir, pwd)
 
 	if len(op.candidates) == 0 {
-		return Path{}, false
+		return Path{}, 0, false
 	}
 
 	candidates := aocutil.MapPairs(op.candidates)
@@ -151,7 +134,7 @@ func (op DeleteOp) Do(dir *Folder) (deleted Path, ok bool) {
 	})
 
 	candidate := candidates[0]
-	return ParsePath(candidate.K), true
+	return ParsePath(candidate.K), candidate.V, true
 }
 
 func (op *DeleteOp) doRec(dir *Folder, pwd Path) {
@@ -169,14 +152,6 @@ func (op *DeleteOp) doRec(dir *Folder, pwd Path) {
 
 		op.doRec(folder, pwd)
 	}
-}
-
-type Execution struct {
-	Command struct {
-		Arg0 Command
-		Argv []string
-	}
-	Output string
 }
 
 type Command string
@@ -241,16 +216,6 @@ func (f *Folder) Size() int64 {
 		size += file.Size()
 	}
 	return size
-}
-
-func (f *Folder) Delete(name string) bool {
-	for i, file := range f.Files {
-		if file.Name() == name {
-			f.Files = append(f.Files[:i], f.Files[i+1:]...)
-			return true
-		}
-	}
-	return false
 }
 
 type File struct {

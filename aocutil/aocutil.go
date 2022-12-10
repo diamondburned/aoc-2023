@@ -759,3 +759,43 @@ func (s Set[T]) Has(v T) bool {
 
 // Reset resets the set.
 func (s *Set[T]) Reset() { *s = make(Set[T], len(*s)) }
+
+type prefixedWriter struct {
+	w io.Writer
+	p []byte
+	b bool
+}
+
+// PrefixedWriter returns a writer that prefixes each line with the given
+// prefix.
+func PrefixedWriter(w io.Writer, prefix string) io.Writer {
+	return &prefixedWriter{
+		w: w,
+		p: []byte(prefix),
+	}
+}
+
+func (w *prefixedWriter) Write(b []byte) (int, error) {
+	var total int
+	for _, line := range bytes.SplitAfter(b, []byte("\n")) {
+		if !w.b {
+			_, err := w.w.Write(w.p)
+			if err != nil {
+				return 0, err
+			}
+			w.b = true
+		}
+
+		n, err := w.w.Write(line)
+		if err != nil {
+			return total, err
+		}
+		total += n
+
+		if bytes.HasSuffix(line, []byte("\n")) {
+			w.b = false
+		}
+	}
+
+	return total, nil
+}

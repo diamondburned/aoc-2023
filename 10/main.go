@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"io"
+	"os"
 	"reflect"
 	"strings"
 
@@ -10,101 +11,106 @@ import (
 )
 
 func main() {
-	var program []Instruction
-
 	input := aocutil.InputString()
 	lines := aocutil.SplitLines(input)
+	program := make(Program, 0, len(lines))
 
 	for _, line := range lines {
 		parts := strings.Fields(line)
 
-		instrFn, ok := instructions[parts[0]]
+		parseInstruction, ok := instructionParsers[parts[0]]
 		aocutil.Assertf(ok, "unknown instruction %q", parts[0])
 
-		program = append(program, instrFn(parts[1:]))
+		program = append(program, parseInstruction(parts[1:]))
 	}
 
-	{
-		x := 1
-		var totalCycles int
+	part1(program)
 
-		var strengths []int
-
-		for _, instr := range program {
-			for cycle := InstructionCycle(instr); cycle > 0; cycle-- {
-				totalCycles++
-
-				if totalCycles == 20 || (totalCycles > 20 && ((totalCycles+20)%40) == 0) {
-					strengths = append(strengths, x*totalCycles)
-					log.Println("cycle", totalCycles, "strength", x*totalCycles)
-				}
-			}
-
-			switch instr := instr.(type) {
-			case Addx:
-				x += instr.N
-			}
-		}
-
-		fmt.Println(strengths)
-		fmt.Println(aocutil.Sum(strengths))
-	}
+	fmt.Println()
 	fmt.Println("=======")
-	{
-		x := 1
-		var totalCycles int
+	fmt.Println()
 
-		const crtW = 40
-		const crtH = 6
-		var crt [crtW * crtH]bool
-		var crtX int
-		var crtY int
-
-		for _, instr := range program {
-			for cycle := InstructionCycle(instr); cycle > 0; cycle-- {
-				// Draw if x is +-1 within pos.
-				if crtX-1 <= x && x <= crtX+1 {
-					crt[crtY*crtW+crtX] = true
-				}
-
-				totalCycles++
-				crtX++
-				if crtX == crtW {
-					crtX = 0
-					crtY++
-				}
-
-			}
-
-			switch instr := instr.(type) {
-			case Addx:
-				x += instr.N
-			}
-		}
-
-		for y := 0; y < crtH; y++ {
-			for x := 0; x < crtW; x++ {
-				if crt[y*crtW+x] {
-					fmt.Print("#")
-				} else {
-					fmt.Print(".")
-				}
-			}
-
-			fmt.Println()
-		}
-	}
+	part2(program)
 }
 
+func part1(program Program) {
+	var strengths []int
+	x := 1
+
+	program.Run(func(instr Instruction, cycles int) {
+		if cycles == 20 || ((cycles+20)%40) == 0 {
+			strengths = append(strengths, x*cycles)
+		}
+
+		switch instr := instr.(type) {
+		case Addx:
+			x += instr.N
+		}
+	})
+
+	fmt.Println("part 1:")
+	fmt.Println("  strengths:", strengths)
+	fmt.Println("  strengths sum:", aocutil.Sum(strengths))
+}
+
+func part2(program Program) {
+	var crtX, crtY int
+	const crtW = 40
+	const crtH = 6
+	crt := NewCRT(crtW, crtH)
+	x := 1
+
+	program.Run(func(instr Instruction, cycles int) {
+		// Draw if x is +-1 within pos.
+		if crtX-1 <= x && x <= crtX+1 {
+			crt.Set(crtX, crtY, true)
+		}
+
+		if crtX++; crtX == crtW {
+			crtX = 0
+			crtY++
+		}
+
+		switch instr := instr.(type) {
+		case Addx:
+			x += instr.N
+		}
+	})
+
+	fmt.Println("part 2:")
+	fmt.Println()
+	crt.Display(os.Stdout)
+}
+
+// Program is a program.
+type Program []Instruction
+
+// Run runs the CPU with the given program. The total number of CPU cycles is
+// returned.
+func (p Program) Run(f func(instr Instruction, cycles int)) int {
+	var cycles int
+	for _, instruction := range p {
+		for i, j := 0, InstructionCycles(instruction)-1; i < j; i++ {
+			cycles++
+			f(nil, cycles)
+		}
+		cycles++
+		f(instruction, cycles)
+	}
+	return cycles
+}
+
+// Instruction is a CPU instruction.
 type Instruction interface {
 	instruction()
 }
 
-func InstructionCycle(instr Instruction) int {
+// InstructionCycles returns the number of cycles that the instruction takes.
+func InstructionCycles(instr Instruction) int {
 	return 1 + reflect.TypeOf(instr).NumField()
 }
 
-var instructions = map[string]func(args []string) Instruction{
+var instructionParsers = map[string]func(args []string) Instruction{
 	"noop": func(args []string) Instruction { return Noop{} },
 	"addx": func(args []string) Instruction {
 		return Addx{aocutil.Atoi[int](args[0])}
@@ -116,3 +122,44 @@ type Addx struct{ N int }
 
 func (Noop) instruction() {}
 func (Addx) instruction() {}
+
+// CRT describes a black-and-white CRT screen.
+type CRT struct {
+	Pix    []bool
+	Stride int
+}
+
+// NewCRT creates a new CRT with the given width and height.
+func NewCRT(w, h int) CRT {
+	return CRT{
+		Pix:    make([]bool, w*h),
+		Stride: w,
+	}
+}
+
+// Set sets the pixel at the given position.
+func (crt CRT) Set(x, y int, val bool) {
+	i := y*crt.Stride + x
+	if i < 0 || i >= len(crt.Pix) {
+		return
+	}
+
+	crt.Pix[i] = val
+}
+
+// Display displays the CRT on the console.
+func (crt CRT) Display(out io.Writer) {
+	buf := make([]rune, len(crt.Pix))
+	for i := range buf {
+		if crt.Pix[i] {
+			buf[i] = '⬜'
+		} else {
+			buf[i] = 'ㅤ'
+		}
+	}
+
+	for i := 0; i < len(crt.Pix); i += crt.Stride {
+		io.WriteString(out, string(buf[i:i+crt.Stride]))
+		io.WriteString(out, "\n")
+	}
+}

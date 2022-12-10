@@ -5,22 +5,18 @@ import (
 	"io"
 	"os"
 	"reflect"
-	"strings"
 
 	"github.com/diamondburned/aoc-2022/aocutil"
 )
 
 func main() {
 	input := aocutil.InputString()
-	lines := aocutil.SplitLines(input)
+	lines := aocutil.SplitLineFields(input)
 	program := make(Program, 0, len(lines))
 
-	for _, line := range lines {
-		parts := strings.Fields(line)
-
+	for _, parts := range lines {
 		parseInstruction, ok := instructionParsers[parts[0]]
 		aocutil.Assertf(ok, "unknown instruction %q", parts[0])
-
 		program = append(program, parseInstruction(parts[1:]))
 	}
 
@@ -54,9 +50,9 @@ func part1(program Program) {
 }
 
 func part2(program Program) {
-	var crtX, crtY int
 	const crtW = 40
 	const crtH = 6
+	var crtX, crtY int
 	crt := NewCRT(crtW, crtH)
 	x := 1
 
@@ -79,7 +75,7 @@ func part2(program Program) {
 
 	fmt.Println("part 2:")
 	fmt.Println()
-	crt.Display(os.Stdout)
+	crt.Display(aocutil.PrefixedWriter(os.Stdout, "  "))
 }
 
 // Program is a program.

@@ -53,10 +53,20 @@ func SplitFileN(name, split string, n int) []string {
 	return parts
 }
 
-// SplitLines splits a line into parts, trimming trailing new lines.
+// SplitLines splits a string into lines after trimming trailing new lines.
 func SplitLines(s string) []string {
 	s = strings.Trim(s, "\n")
 	return strings.Split(s, "\n")
+}
+
+// SplitLineFields splits a string into lines and then fields.
+func SplitLineFields(s string) [][]string {
+	lines := SplitLines(s)
+	fields := make([][]string, len(lines))
+	for i, line := range lines {
+		fields[i] = strings.Fields(line)
+	}
+	return fields
 }
 
 // Sscanf is a wrapper around fmt.Sscanf that panics on error.

@@ -59,6 +59,8 @@ func part2(monkeys Monkeys) {
 	// assuming we have n monkeys, we can modulo the item by the product of all
 	// the monkeys' divisibleBy. This will yield the same result as if we
 	// eventually modulo'd the item by each monkey's divisibleBy.
+	//
+	// For future reference, this is called the Chinese Remainder Theorem.
 	var product int = 1
 	for _, monkey := range monkeys {
 		product *= monkey.Test.DivisibleBy

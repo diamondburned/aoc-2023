@@ -54,6 +54,13 @@ func SplitFileN(name, split string, n int) []string {
 	return parts
 }
 
+// SplitBlocks splits the given string using two new lines after trimming new
+// lines.
+func SplitBlocks(s string) []string {
+	s = strings.Trim(s, "\n")
+	return strings.Split(s, "\n\n")
+}
+
 // SplitLines splits a string into lines after trimming trailing new lines.
 func SplitLines(s string) []string {
 	s = strings.Trim(s, "\n")

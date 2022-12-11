@@ -10,13 +10,8 @@ import (
 
 func main() {
 	var monkeys []Monkey
-
 	input := aocutil.InputString()
-	blocks := strings.Split(input, "\n\n")
-	for _, block := range blocks {
-		if block == "" {
-			continue
-		}
+	for _, block := range aocutil.SplitBlocks(input) {
 		monkeys = append(monkeys, MustParseMonkey(block))
 	}
 
@@ -26,64 +21,32 @@ func main() {
 	part2(aocutil.Clone(monkeys))
 }
 
-func part1(monkeys []Monkey) {
+func part1(monkeys Monkeys) {
 	inspectTimes := make(map[int]int)
 
-	for round := 0; round < 20; round++ {
-		fmt.Print("round ", round+1, ": ")
-		fmt.Println()
-
+	for round := 1; round <= 20; round++ {
 		for i := range monkeys {
 			monkey := &monkeys[i]
 			for _, item := range monkey.StartingItems {
 				// Log inspect time.
 				inspectTimes[i]++
-
 				// Apply worry level to item.
 				item = monkey.Operation.Do(item)
 				// Monkey is now bored, so div 3.
 				item = item / 3
-				// Check for next monkey.
-				nextMonkeyIx := monkey.Test.Do(int(item))
-				nextMonkey := &monkeys[nextMonkeyIx]
-				// Throw to next monkey.
-				nextMonkey.StartingItems = append(nextMonkey.StartingItems, item)
-				// Remove item from current monkey.
-				monkey.StartingItems = monkey.StartingItems[1:]
+				// Pass the item.
+				monkeys.Pass(monkey, item)
 			}
 		}
 
-		for i, monkey := range monkeys {
-			fmt.Print("  monkey ", i, ": ", monkey.StartingItems)
-			fmt.Println()
-		}
+		printState(round+1, monkeys, inspectTimes)
 	}
 
-	fmt.Println("inspect times:", inspectTimes)
-	inspectTimesList := aocutil.MapPairs(inspectTimes)
-	sort.Slice(inspectTimesList, func(i, j int) bool {
-		return inspectTimesList[i].V > inspectTimesList[j].V
-	})
-	fmt.Println("monkey business:", inspectTimesList[0].V*inspectTimesList[1].V)
+	printMonkeyBusiness(inspectTimes)
 }
 
-func part2(monkeys []Monkey) {
+func part2(monkeys Monkeys) {
 	inspectTimes := make(map[int]int)
-
-	careRounds := map[int]bool{
-		1:     true,
-		20:    true,
-		1000:  true,
-		2000:  true,
-		3000:  true,
-		4000:  true,
-		5000:  true,
-		6000:  true,
-		7000:  true,
-		8000:  true,
-		9000:  true,
-		10000: true,
-	}
 
 	// Bro this shit is tough as FUCK. My initial solution was to do
 	// item %= divisibleBy to limit the item number to the range of the
@@ -101,40 +64,39 @@ func part2(monkeys []Monkey) {
 		product *= monkey.Test.DivisibleBy
 	}
 
-	for round := 0; round < 10000; round++ {
+	for round := 1; round <= 10000; round++ {
 		for i := range monkeys {
 			monkey := &monkeys[i]
 			for _, item := range monkey.StartingItems {
 				// Log inspect time.
 				inspectTimes[i]++
-
 				// Apply worry level to item.
-				item = monkey.Operation.Do(item)
-				// We're not dividing by 3 anymore.
 				// Minimize the item number so that it doesn't overflow.
-				item = item % product
-
-				// Check for next monkey.
-				nextMonkeyIx := monkey.Test.Do(int(item))
-				nextMonkey := &monkeys[nextMonkeyIx]
-				// Throw to next monkey.
-				nextMonkey.StartingItems = append(nextMonkey.StartingItems, item)
-				// Remove item from current monkey.
-				monkey.StartingItems = monkey.StartingItems[1:]
+				item = monkey.Operation.Do(item) % product
+				// Pass the item.
+				monkeys.Pass(monkey, item)
 			}
 		}
 
-		if careRounds[round+1] {
-			fmt.Print("round ", round+1, ": ")
-			fmt.Println()
-			fmt.Println("  inspect times:", inspectTimes)
-			for i, monkey := range monkeys {
-				fmt.Print("  monkey ", i, ": ", monkey.StartingItems)
-				fmt.Println()
-			}
+		if round == 1 || round == 20 || (round%1000) == 0 {
+			printState(round, monkeys, inspectTimes)
 		}
 	}
 
+	printMonkeyBusiness(inspectTimes)
+}
+
+func printState(round int, monkeys Monkeys, inspectTimes map[int]int) {
+	fmt.Print("round ", round, ": ")
+	fmt.Println()
+	fmt.Println("  inspect times:", inspectTimes)
+	for i, monkey := range monkeys {
+		fmt.Print("  monkey ", i, ": ", monkey.StartingItems)
+		fmt.Println()
+	}
+}
+
+func printMonkeyBusiness(inspectTimes map[int]int) {
 	fmt.Println("inspect times:", inspectTimes)
 	inspectTimesList := aocutil.MapPairs(inspectTimes)
 	sort.Slice(inspectTimesList, func(i, j int) bool {
@@ -143,6 +105,7 @@ func part2(monkeys []Monkey) {
 	fmt.Println("monkey business:", inspectTimesList[0].V*inspectTimesList[1].V)
 }
 
+// Operator is a mathematical operator.
 type Operator uint8
 
 const (
@@ -150,6 +113,22 @@ const (
 	AddOp
 	MulOp
 )
+
+// Monkeys represents a bunch of monkeys.
+type Monkeys []Monkey
+
+// Pass passes the item to the next monkey based on the item's value. It returns
+// the next monkey's index.
+func (ms Monkeys) Pass(monkey *Monkey, item int) int {
+	// Check for next monkey.
+	nextMonkeyIx := monkey.Test.NextMonkey(item)
+	nextMonkey := &ms[nextMonkeyIx]
+	// Throw to next monkey.
+	nextMonkey.StartingItems = append(nextMonkey.StartingItems, item)
+	// Remove item from current monkey.
+	monkey.StartingItems = monkey.StartingItems[1:]
+	return nextMonkeyIx
+}
 
 // Monkey represents a monkey.
 type Monkey struct {
@@ -161,6 +140,7 @@ type Monkey struct {
 	Test MonkeyTest
 }
 
+// MustParseMonkey parses a monkey from the given text block.
 func MustParseMonkey(input string) Monkey {
 	var m Monkey
 
@@ -207,6 +187,7 @@ func MustParseMonkey(input string) Monkey {
 	return m
 }
 
+// Operation represents a basic mathematical operation.
 type Operation struct {
 	// Op is the operator used in the Operation function.
 	Op Operator
@@ -215,32 +196,33 @@ type Operation struct {
 	Rhs *int
 }
 
-func (op Operation) Do(old int) int {
-	new := old
+// Do applies the operation to the given number.
+func (op Operation) Do(n int) int {
+	rhs := n
 	if op.Rhs != nil {
-		new = *op.Rhs
+		rhs = *op.Rhs
 	}
 
 	switch op.Op {
 	case AddOp:
-		new = old + new
+		return n + rhs
 	case MulOp:
-		new = old * new
+		return n * rhs
 	default:
 		aocutil.Assertf(false, "unknown operation %q", op.Op)
+		return 0
 	}
-
-	return new
 }
 
+// MonkeyTest represents a test that a monkey performs on a worry level.
 type MonkeyTest struct {
 	DivisibleBy   int
 	MonkeyIfTrue  int
 	MonkeyIfFalse int
 }
 
-// Do tests the number n and returns the next monkey to throw to.
-func (t MonkeyTest) Do(n int) int {
+// NextMonkey tests the number n and returns the next monkey to throw to.
+func (t MonkeyTest) NextMonkey(n int) int {
 	if n%t.DivisibleBy == 0 {
 		return t.MonkeyIfTrue
 	}

@@ -16,6 +16,7 @@ import (
 	"golang.org/x/exp/constraints"
 
 	_ "github.com/davecgh/go-spew/spew"
+	"github.com/mohae/deepcopy"
 	_ "gonum.org/v1/gonum"
 )
 
@@ -808,4 +809,9 @@ func (w *prefixedWriter) Write(b []byte) (int, error) {
 	}
 
 	return total, nil
+}
+
+// Clone deep-copies in and returns a newly-allocated value.
+func Clone[T any](in T) T {
+	return deepcopy.Copy(in).(T)
 }

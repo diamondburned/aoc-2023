@@ -31,12 +31,13 @@ func part2(m Map) {
 	fmt.Println("Part 2:")
 
 	navs := m.NavigateFrom('a')
-	sort.Slice(navs, func(i, j int) bool {
-		return len(navs[i].Routes[0]) < len(navs[j].Routes[0])
+
+	nav := aocutil.Minf(navs, func(nav1, nav2 Navigation) bool {
+		// Find the navigation point with the shortest route.
+		return len(nav1.Routes[0]) < len(nav2.Routes[0])
 	})
 
-	nav := navs[0]
-	fmt.Printf("nearest point found at %v\n", nav.Source)
+	fmt.Printf("shortest point found at %v\n", nav.Source)
 	for j, route := range nav.Routes {
 		fmt.Printf("route %d: length %d\n", j, len(route))
 		route.Print(m, nav.Source, aocutil.PrefixedStdout("  "))

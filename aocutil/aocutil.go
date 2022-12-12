@@ -387,6 +387,23 @@ func Mins[T constraints.Ordered](vs ...T) T {
 	return min
 }
 
+// Minf returns the minimum of many values, with each one being compared
+// using the given less function.
+func Minf[T any](vs []T, less func(T, T) bool) T {
+	if len(vs) == 0 {
+		var z T
+		return z
+	}
+
+	min := vs[0]
+	for _, v := range vs[1:] {
+		if less(v, min) {
+			min = v
+		}
+	}
+	return min
+}
+
 // Min2 returns the minimum of two values.
 func Min2[T constraints.Ordered](a, b T) T {
 	if a < b {

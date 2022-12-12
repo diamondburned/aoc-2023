@@ -12,51 +12,57 @@ import (
 func main() {
 	input := aocutil.InputString()
 
-	imap := ParseMap(input)
+	m := ParseMap(input)
+	part1(m)
+	fmt.Println()
+	part2(m)
+}
 
-	{
-		fmt.Println("Part 1:")
-		nav := imap.NavigateFromMe()
-		for i, route := range nav.Routes {
-			fmt.Printf("route %d (length %d)\n", i, len(route))
-			route.Print(imap, nav.Source, aocutil.PrefixedStdout("  "))
-		}
-	}
-
-	{
-		fmt.Println("Part 2:")
-
-		navs := imap.NavigateFrom('a')
-		sort.Slice(navs, func(i, j int) bool {
-			return len(navs[i].Routes[0]) < len(navs[j].Routes[0])
-		})
-
-		nav := navs[0]
-		fmt.Printf("starting from %v\n", nav.Source)
-		for j, route := range nav.Routes {
-			fmt.Printf("  route %d: length %d\n", j, len(route))
-			route.Print(imap, nav.Source, aocutil.PrefixedStdout("    "))
-		}
+func part1(m Map) {
+	fmt.Println("Part 1:")
+	nav := m.NavigateFromMe()
+	for i, route := range nav.Routes {
+		fmt.Printf("route %d (length %d)\n", i, len(route))
+		route.Print(m, nav.Source, aocutil.PrefixedStdout("  "))
 	}
 }
 
+func part2(m Map) {
+	fmt.Println("Part 2:")
+
+	navs := m.NavigateFrom('a')
+	sort.Slice(navs, func(i, j int) bool {
+		return len(navs[i].Routes[0]) < len(navs[j].Routes[0])
+	})
+
+	nav := navs[0]
+	fmt.Printf("nearest point found at %v\n", nav.Source)
+	for j, route := range nav.Routes {
+		fmt.Printf("route %d: length %d\n", j, len(route))
+		route.Print(m, nav.Source, aocutil.PrefixedStdout("  "))
+	}
+}
+
+// Coordinate is a coordinate in the map.
 type Coordinate struct{ X, Y int }
 
+// Add adds the coordinates together and returns the result.
 func (c Coordinate) Add(other Coordinate) Coordinate {
 	c.X += other.X
 	c.Y += other.Y
 	return c
 }
 
-type MapPoint byte
+// MapValue is a value on the map.
+type MapValue byte
 
 const (
-	MyLocation MapPoint = 'S' // elevation a
-	BestSignal MapPoint = 'E' // elevation z
+	MyLocation MapValue = 'S' // elevation a
+	BestSignal MapValue = 'E' // elevation z
 )
 
 // Elevation returns the elevation of the point.
-func (p MapPoint) Elevation() int {
+func (p MapValue) Elevation() int {
 	if p == MyLocation {
 		p = 'a'
 	}
@@ -69,8 +75,10 @@ func (p MapPoint) Elevation() int {
 	return math.MaxInt // invalid
 }
 
-type Map [][]MapPoint
+// Map describes a map.
+type Map [][]MapValue
 
+// ParseMap parses the map.
 func ParseMap(block string) Map {
 	lines := aocutil.SplitLines(block)
 
@@ -79,16 +87,17 @@ func ParseMap(block string) Map {
 
 	m := make(Map, h)
 	for y, line := range lines {
-		m[y] = make([]MapPoint, w)
+		m[y] = make([]MapValue, w)
 		for x, r := range line {
-			m[y][x] = MapPoint(r)
+			m[y][x] = MapValue(r)
 		}
 	}
 
 	return m
 }
 
-func (m Map) At(coord Coordinate) MapPoint {
+// At returns the value at the coordinate.
+func (m Map) At(coord Coordinate) MapValue {
 	if coord.Y < 0 || coord.Y >= len(m) {
 		return 0
 	}
@@ -98,9 +107,13 @@ func (m Map) At(coord Coordinate) MapPoint {
 	return m[coord.Y][coord.X]
 }
 
-func (m Map) Width() int  { return len(m[0]) }
+// Width returns the width of the map.
+func (m Map) Width() int { return len(m[0]) }
+
+// Height returns the height of the map.
 func (m Map) Height() int { return len(m) }
 
+// Direction is a direction enum.
 type Direction byte
 
 const (
@@ -117,8 +130,11 @@ var directionDeltas = map[Direction]Coordinate{
 	Right: {1, 0},
 }
 
+// Route is a route. It consists of directions, each of them relative to the
+// previous location.
 type Route []Direction
 
+// Add adds a direction to a new route and returns it.
 func (r Route) Add(direction Direction) Route {
 	cpy := make(Route, len(r)+1)
 	copy(cpy, r)
@@ -126,6 +142,8 @@ func (r Route) Add(direction Direction) Route {
 	return cpy
 }
 
+// Print prints the route using the given map and starting coordinate. The
+// output is written to the given writer.
 func (r Route) Print(m Map, start Coordinate, out io.Writer) {
 	buf := make([][]byte, m.Height())
 	for i := range buf {
@@ -148,32 +166,22 @@ func (r Route) Print(m Map, start Coordinate, out io.Writer) {
 	}
 }
 
+// Navigation describes a navigation.
 type Navigation struct {
 	Source Coordinate
 	Routes []Route
 }
 
+// NavigateFromMe navigates from the current location. The first location found
+// on the map is assumed.
 func (m Map) NavigateFromMe() Navigation {
-	var source Coordinate
-findMyLocation:
-	for y, row := range m {
-		for x, point := range row {
-			if point == MyLocation {
-				source = Coordinate{X: x, Y: y}
-				break findMyLocation
-			}
-		}
-	}
-
-	navigator := newNavigator(m, source)
-	navigator.navigate(source)
-	return Navigation{
-		Source: source,
-		Routes: navigator.routes,
-	}
+	return m.NavigateFrom(MyLocation)[0]
 }
 
-func (m Map) NavigateFrom(val MapPoint) []Navigation {
+// NavigateFrom navigates from the given value. A list of navigations is
+// returned, with each one starting from each location of the given value found
+// on the map.
+func (m Map) NavigateFrom(val MapValue) []Navigation {
 	var navs []Navigation
 	for y, row := range m {
 		for x, point := range row {
@@ -194,7 +202,7 @@ func (m Map) NavigateFrom(val MapPoint) []Navigation {
 
 type navigator struct {
 	m       Map
-	dst     MapPoint
+	dst     MapValue
 	routes  []Route
 	visited [][]bool
 }
@@ -216,6 +224,7 @@ func (n *navigator) navigate(srcPos Coordinate) {
 		pos   Coordinate
 		route Route
 	}
+
 	queue := make([]queueItem, 0, 4)
 	queue = append(queue, queueItem{srcPos, nil})
 

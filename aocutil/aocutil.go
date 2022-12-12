@@ -793,6 +793,11 @@ func PrefixedWriter(w io.Writer, prefix string) io.Writer {
 	}
 }
 
+// PrefixedStdout returns a writer to stdout with the given prefix.
+func PrefixedStdout(prefix string) io.Writer {
+	return PrefixedWriter(os.Stdout, prefix)
+}
+
 func (w *prefixedWriter) Write(b []byte) (int, error) {
 	var total int
 	for _, line := range bytes.SplitAfter(b, []byte("\n")) {

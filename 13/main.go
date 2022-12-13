@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"reflect"
 	"sort"
-	"strings"
 
 	"github.com/diamondburned/aoc-2022/aocutil"
 )
@@ -42,7 +40,7 @@ func part1(packetPairs [][2]Packet) {
 		log.Printf("%d: compare %v vs %v", i+1, pair[0], pair[1])
 		log.Println("   ->", order)
 
-		if order == ordered {
+		if order == Ordered {
 			indices = append(indices, i+1)
 		}
 	}
@@ -89,18 +87,13 @@ func (p Packet) item() {}
 func (b Data) item()   {}
 
 func unmarshalItemJSON(b []byte) (item, error) {
-	if !bytes.HasPrefix(b, []byte{'['}) || !bytes.HasSuffix(b, []byte{']'}) {
+	var raws []json.RawMessage
+	if err := json.Unmarshal(b, &raws); err != nil {
 		var v int
 		if err := json.Unmarshal(b, &v); err != nil {
 			return nil, err
 		}
-
 		return Data(v), nil
-	}
-
-	var raws []json.RawMessage
-	if err := json.Unmarshal(b, &raws); err != nil {
-		return nil, err
 	}
 
 	items := make([]item, len(raws))
@@ -121,45 +114,39 @@ func ParsePacket(line string) Packet {
 }
 
 func (p Packet) String() string {
-	var b strings.Builder
-	b.WriteByte('[')
-	for i, item := range p {
-		fmt.Fprint(&b, item)
-		if i != len(p)-1 {
-			b.WriteByte(',')
-		}
-	}
-	b.WriteByte(']')
-	return b.String()
+	b := aocutil.E2(json.Marshal(p))
+	return string(b)
 }
 
 type Order int8
 
 const (
-	undefinedOrder Order = iota - 1
-	ordered
-	unordered
+	UndefinedOrder Order = iota - 1
+	Ordered
+	Unordered
 )
 
 func (o Order) String() string {
 	switch o {
-	case ordered:
+	case Ordered:
 		return "ordered"
-	case unordered:
+	case Unordered:
 		return "unordered"
 	default:
 		return "undefined"
 	}
 }
 
-func PacketsAreOrdered(p1, p2 Packet) Order {
-	return itemIsOrdered(p1, p2)
-}
-
+// SortPackets sorts the packets in-place.
 func SortPackets(ps []Packet) {
 	sort.Slice(ps, func(i, j int) bool {
-		return PacketsAreOrdered(ps[i], ps[j]) == ordered
+		return PacketsAreOrdered(ps[i], ps[j]) == Ordered
 	})
+}
+
+// PacketsAreOrdered returns whether p1 is ordered before p2.
+func PacketsAreOrdered(p1, p2 Packet) Order {
+	return itemIsOrdered(p1, p2)
 }
 
 func itemIsOrdered(v1, v2 item) Order {
@@ -170,12 +157,12 @@ func itemIsOrdered(v1, v2 item) Order {
 		log.Println("compare data", d1, d2)
 		// Lower one comes first.
 		if d1 < d2 {
-			return ordered
+			return Ordered
 		}
 		if d1 > d2 {
-			return unordered
+			return Unordered
 		}
-		return undefinedOrder
+		return UndefinedOrder
 	}
 
 	var p1 Packet
@@ -198,18 +185,18 @@ func itemIsOrdered(v1, v2 item) Order {
 	plen := aocutil.Min2(len(p1), len(p2))
 	for i := 0; i < plen; i++ {
 		order := itemIsOrdered(p1[i], p2[i])
-		if order != undefinedOrder {
+		if order != UndefinedOrder {
 			return order
 		}
 	}
 
 	if len(p1) < len(p2) {
-		return ordered
+		return Ordered
 	}
 
 	if len(p1) > len(p2) {
-		return unordered
+		return Unordered
 	}
 
-	return undefinedOrder
+	return UndefinedOrder
 }

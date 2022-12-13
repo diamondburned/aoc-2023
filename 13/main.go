@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"reflect"
 	"sort"
@@ -11,6 +12,8 @@ import (
 )
 
 func main() {
+	log.SetOutput(io.Discard)
+
 	input := aocutil.InputString()
 	blocks := aocutil.SplitBlocks(input)
 
@@ -62,7 +65,7 @@ func part2(packetPairs [][2]Packet) {
 
 	var dividerIxs [2]int
 	for i, packet := range packets {
-		fmt.Println(i, packet)
+		log.Printf("%02d: %v", i, packet)
 		for j, divider := range dividers {
 			if reflect.DeepEqual(divider, packet) {
 				dividerIxs[j] = i + 1
@@ -70,7 +73,7 @@ func part2(packetPairs [][2]Packet) {
 		}
 	}
 
-	fmt.Println(dividerIxs[0] * dividerIxs[1])
+	fmt.Println("part 2:", dividerIxs[0]*dividerIxs[1])
 }
 
 type item interface {

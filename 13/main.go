@@ -33,28 +33,19 @@ func main() {
 }
 
 func part1(packetPairs [][2]Packet) {
-	var indices []int
-	for i, pair := range packetPairs {
-		order := itemIsOrdered(pair[0], pair[1])
-
-		log.Printf("%d: compare %v vs %v", i+1, pair[0], pair[1])
-		log.Println("   ->", order)
-
-		if order == Ordered {
-			indices = append(indices, i+1)
-		}
-	}
-
+	indices := aocutil.FilterIxs(packetPairs, func(packets [2]Packet) bool {
+		return PacketsAreOrdered(packets[0], packets[1]) == Ordered
+	})
+	add1s(indices)
 	fmt.Println("part 1:", aocutil.Sum(indices))
 }
 
 func part2(packetPairs [][2]Packet) {
 	packets := make([]Packet, 0, len(packetPairs)*2)
 	for _, pair := range packetPairs {
-		packets = append(packets, pair[0], pair[1])
+		packets = append(packets, pair[:]...)
 	}
 
-	// Add divider packets.
 	dividers := [2]Packet{
 		{Packet{Data(2)}},
 		{Packet{Data(6)}},
@@ -63,17 +54,19 @@ func part2(packetPairs [][2]Packet) {
 
 	SortPackets(packets)
 
-	var dividerIxs [2]int
-	for i, packet := range packets {
-		log.Printf("%02d: %v", i, packet)
-		for j, divider := range dividers {
-			if reflect.DeepEqual(divider, packet) {
-				dividerIxs[j] = i + 1
-			}
-		}
-	}
-
+	dividerIxs := aocutil.FilterIxs(packets, func(p Packet) bool {
+		return false ||
+			reflect.DeepEqual(p, dividers[0]) ||
+			reflect.DeepEqual(p, dividers[1])
+	})
+	add1s(dividerIxs)
 	fmt.Println("part 2:", dividerIxs[0]*dividerIxs[1])
+}
+
+func add1s(v []int) {
+	for i := range v {
+		v[i]++
+	}
 }
 
 type item interface {
@@ -118,6 +111,8 @@ func (p Packet) String() string {
 	return string(b)
 }
 
+// Order is a tri-state boolean representing whether something is ordered or
+// not.
 type Order int8
 
 const (
@@ -152,35 +147,25 @@ func PacketsAreOrdered(p1, p2 Packet) Order {
 func itemIsOrdered(v1, v2 item) Order {
 	d1, isData1 := v1.(Data)
 	d2, isData2 := v2.(Data)
-
 	if isData1 && isData2 {
-		log.Println("compare data", d1, d2)
-		// Lower one comes first.
-		if d1 < d2 {
+		switch {
+		case d1 < d2:
 			return Ordered
-		}
-		if d1 > d2 {
+		case d1 > d2:
 			return Unordered
+		default:
+			return UndefinedOrder
 		}
-		return UndefinedOrder
 	}
 
-	var p1 Packet
-	var p2 Packet
-
+	p1, _ := v1.(Packet)
+	p2, _ := v2.(Packet)
 	if isData1 {
 		p1 = Packet{d1}
-	} else {
-		p1 = v1.(Packet)
 	}
-
 	if isData2 {
 		p2 = Packet{d2}
-	} else {
-		p2 = v2.(Packet)
 	}
-
-	log.Println("compare packet", p1, p2)
 
 	plen := aocutil.Min2(len(p1), len(p2))
 	for i := 0; i < plen; i++ {
@@ -190,13 +175,12 @@ func itemIsOrdered(v1, v2 item) Order {
 		}
 	}
 
-	if len(p1) < len(p2) {
+	switch {
+	case len(p1) < len(p2):
 		return Ordered
-	}
-
-	if len(p1) > len(p2) {
+	case len(p1) > len(p2):
 		return Unordered
+	default:
+		return UndefinedOrder
 	}
-
-	return UndefinedOrder
 }

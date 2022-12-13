@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -86,71 +88,36 @@ type Data int
 func (p Packet) item() {}
 func (b Data) item()   {}
 
+func unmarshalItemJSON(b []byte) (item, error) {
+	if !bytes.HasPrefix(b, []byte{'['}) || !bytes.HasSuffix(b, []byte{']'}) {
+		var v int
+		if err := json.Unmarshal(b, &v); err != nil {
+			return nil, err
+		}
+
+		return Data(v), nil
+	}
+
+	var raws []json.RawMessage
+	if err := json.Unmarshal(b, &raws); err != nil {
+		return nil, err
+	}
+
+	items := make([]item, len(raws))
+	for i, raw := range raws {
+		item, err := unmarshalItemJSON(raw)
+		if err != nil {
+			return nil, err
+		}
+		items[i] = item
+	}
+
+	return Packet(items), nil
+}
+
 func ParsePacket(line string) Packet {
-	if !strIsPacket(line) {
-		panic("invalid packet")
-	}
-
-	return parsePacket(line).(Packet)
-}
-
-func parsePacket(line string) item {
-	if !strIsPacket(line) {
-		v := aocutil.Atoi[int](line)
-		return Data(v)
-	}
-
-	line = line[1 : len(line)-1]
-
-	var packet Packet
-	var buffer string
-
-	for i := 0; i < len(line); i++ {
-		if line[i] == '[' {
-			end := scanPair(line[i:])
-			packet = append(packet, parsePacket(line[i:i+end+1]))
-
-			i += end
-			continue
-		}
-
-		if line[i] == ',' {
-			if buffer != "" {
-				packet = append(packet, parsePacket(buffer))
-			}
-			buffer = ""
-			continue
-		}
-
-		buffer += string(line[i])
-		continue
-	}
-
-	if buffer != "" {
-		packet = append(packet, parsePacket(buffer))
-	}
-
-	return packet
-}
-
-// scanPair scans line until it finds an ending ] that matches the starting [.
-func scanPair(line string) int {
-	var depth int
-	for i, c := range line {
-		if c == '[' {
-			depth++
-		} else if c == ']' {
-			depth--
-			if depth == 0 {
-				return i
-			}
-		}
-	}
-	return -1
-}
-
-func strIsPacket(line string) bool {
-	return strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]")
+	p := aocutil.E2(unmarshalItemJSON([]byte(line)))
+	return p.(Packet)
 }
 
 func (p Packet) String() string {

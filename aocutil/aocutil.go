@@ -259,6 +259,14 @@ func Contains[T comparable](slice []T, v T) bool {
 	return Index(slice, v) != -1
 }
 
+// Map is like Transform, except the type is the same and replacing is done
+// in-place.
+func Map[T any](a []T, f func(T) T) {
+	for i, s := range a {
+		a[i] = f(s)
+	}
+}
+
 // Transform transforms a slice of strings into another slice of strings.
 // It is also known as Map.
 func Transform[T1 any, T2 any](a []T1, f func(T1) T2) []T2 {
@@ -271,7 +279,7 @@ func Transform[T1 any, T2 any](a []T1, f func(T1) T2) []T2 {
 
 // Filter filters a slice of strings into another slice of strings.
 func Filter[T any](a []T, f func(T) bool) []T {
-	v := make([]T, 0, len(a))
+	v := make([]T, 0, Clamp(len(a), 0, 128))
 	for _, s := range a {
 		if f(s) {
 			v = append(v, s)
@@ -290,6 +298,18 @@ func FilterInplace[T any](a []T, f func(T) bool) []T {
 		}
 	}
 	return v
+}
+
+// FilterIxs filters a slice and returns the indices at which f(a[i]) returns
+// true.
+func FilterIxs[T any](a []T, f func(T) bool) []int {
+	ixs := make([]int, 0, Clamp(len(a), 0, 128))
+	for i, s := range a {
+		if f(s) {
+			ixs = append(ixs, i)
+		}
+	}
+	return ixs
 }
 
 // SlidingWindow calls fn for each window of size n in slice. If fn returns
@@ -329,6 +349,15 @@ func Sum[T constraints.Ordered](numbers []T) T {
 		sum += n
 	}
 	return sum
+}
+
+// Mul returns the multiplication of a slice of numbers.
+func Mul[T constraints.Integer | constraints.Float](numbers []T) T {
+	mul := T(1)
+	for _, n := range numbers {
+		mul *= n
+	}
+	return mul
 }
 
 // Avg returns the average of a slice of numbers.

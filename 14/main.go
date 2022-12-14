@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"io"
 	"log"
 	"math"
@@ -11,14 +12,10 @@ import (
 	"github.com/diamondburned/aoc-2022/aocutil"
 )
 
-// var stderr = os.Stderr
-
-var stderr = io.Discard
-
 func main() {
-	log.SetOutput(stderr)
+	log.SetOutput(io.Discard)
 
-	var drawingLines []Lines
+	var drawingLines []Line
 
 	input := aocutil.InputString()
 	lines := aocutil.SplitLines(input)
@@ -28,7 +25,7 @@ func main() {
 
 	m := DrawMap(drawingLines)
 	part1(aocutil.Clone(m))
-	// part2(aocutil.Clone(m))
+	part2(aocutil.Clone(m))
 }
 
 var (
@@ -48,7 +45,6 @@ func part1(m Map) {
 	var i int
 	for sim.DropSandAt(dropSandAt) != (Pt{-1, -1}) {
 		i++
-		log.Println("Dropped", i, "sand")
 	}
 	fmt.Println("part 1:", i)
 	sim.PrintMap(os.Stdout)
@@ -56,25 +52,32 @@ func part1(m Map) {
 
 func part2(m Map) {
 	sim := NewSimulator(m, SimulatorOpts{
-		MapOpts:      mapOpts,
-		Infinite:     true,
-		FloorOffsetY: 2,
+		MapOpts:  mapOpts,
+		FloorY:   m.Height() + 1,
+		Infinite: true,
 	})
 
 	var i int
 	for sim.DropSandAt(dropSandAt) != (Pt{-1, -1}) {
 		i++
-		log.Println("Dropped", i, "sand")
 	}
 	fmt.Println("part 2:", i)
 	sim.PrintMap(os.Stdout)
 }
 
-// Lines is a draw instruction for multiple lines.
-type Lines []Pt
+// Pt is a point in 2D space.
+type Pt = image.Point
 
-func ParseLines(str string) Lines {
-	var lines Lines
+var ZP = Pt{}
+
+func addPt(pt Pt, dx, dy int) Pt { return pt.Add(Pt{dx, dy}) }
+
+// Line is a draw instruction for a continuous line.
+type Line []Pt
+
+// ParseLines parses the given string for line instructions.
+func ParseLines(str string) Line {
+	var lines Line
 
 	parts := strings.Split(str, " -> ")
 	for _, part := range parts {
@@ -87,22 +90,22 @@ func ParseLines(str string) Lines {
 	return lines
 }
 
-type Pt struct{ X, Y int }
+type Block = byte
 
-func (pt Pt) Add(other Pt) Pt {
-	return Pt{pt.X + other.X, pt.Y + other.Y}
-}
-
-func (pt Pt) Addn(x, y int) Pt {
-	return Pt{pt.X + x, pt.Y + y}
-}
+const (
+	Void        Block = ' '
+	Air         Block = '.'
+	Rock        Block = '#'
+	Sand        Block = '*'
+	RestingSand Block = 'o'
+)
 
 // Map is a 2D map of blocks.
 type Map [][]Block
 
 // DrawMap draws the map using the given draw instructions, which is a list of
 // lines.
-func DrawMap(lines []Lines) Map {
+func DrawMap(lines []Line) Map {
 	var maxX, maxY int
 	for _, line := range lines {
 		for _, pt := range line {
@@ -142,16 +145,6 @@ func DrawMap(lines []Lines) Map {
 	return m
 }
 
-type Block = byte
-
-const (
-	Void        Block = ' '
-	Air         Block = '.'
-	Rock        Block = '#'
-	Sand        Block = '*'
-	RestingSand Block = 'o'
-)
-
 func (m Map) At(pt Pt) Block {
 	if pt.Y < 0 || pt.Y >= len(m) || pt.X < 0 || pt.X >= len(m[pt.Y]) {
 		return Void
@@ -171,8 +164,6 @@ func (m *Map) Grow(delta Pt) {
 }
 
 func (m *Map) growX(delta int) {
-	log.Println("Growing map horizontally by", delta)
-
 	amount := delta
 	if amount < 0 {
 		amount = -amount
@@ -202,7 +193,6 @@ func (m *Map) growX(delta int) {
 
 func (m *Map) growY(delta int) {
 	aocutil.Assert(delta >= 0, "delta must be positive")
-	log.Println("Growing map vertically by", delta)
 
 	var w int
 	if len(*m) > 0 {
@@ -227,14 +217,12 @@ type Simulator struct {
 	// m is the map to simulate on.
 	m Map
 	o SimulatorOpts
-
-	floorY int
 }
 
 type SimulatorOpts struct {
-	// FloorOffsetY is the offset from the bottom of the map to the floor.
-	// If this is 0, then there is no floor.
-	FloorOffsetY int
+	// FloorY is the Y-value of the floor. If this is 0, then there is no floor.
+	// If FloorY is overbound, then it is useless unless Infinite is true.
+	FloorY int
 	// Infinite is whether the map is infinite. If this is true, then the map
 	// will grow as needed.
 	Infinite bool
@@ -242,6 +230,7 @@ type SimulatorOpts struct {
 	MapOpts MapOpts
 }
 
+// MapOpts are the options to use when printing the map.
 type MapOpts struct {
 	Overlays map[Pt]byte
 	Start    Pt
@@ -250,47 +239,43 @@ type MapOpts struct {
 
 // NewSimulator creates a new simulator for the given map.
 func NewSimulator(m Map, o SimulatorOpts) *Simulator {
-	floorY := 0
-	if o.FloorOffsetY >= 0 {
-		floorY = m.Height() - 1 + o.FloorOffsetY
-		// Pre-grow our map.
-		m.Grow(Pt{0, o.FloorOffsetY})
-		// Fill the floor with rock.
-		for x := range m[floorY] {
-			m[floorY][x] = Rock
-		}
-	}
-
-	return &Simulator{
+	s := Simulator{
 		m: m,
 		o: o,
-
-		floorY: floorY,
 	}
+
+	if o.Infinite && o.FloorY >= m.Height() {
+		s.m.Grow(Pt{0, o.FloorY - m.Height() + 1})
+		s.fillFloor(0, m.Width())
+	}
+
+	return &s
 }
 
-func (s *Simulator) DropSandAt(pt Pt) (placed Pt) {
+func (s *Simulator) DropSandAt(pos Pt) (placed Pt) {
 	// Check that the source is not blocked and is just air.
-	if s.m.At(pt) != Air {
+	if s.m.At(pos) != Air {
 		return Pt{-1, -1}
 	}
 
-	defer func() {
-		log.Println("dropped sand:")
-		s.PrintMap(log.Writer())
-	}()
-
-	fall := fallingState{s.m, pt, Pt{-1, -1}}
+	fall := func(pt Pt, b Block) {
+		if pos != (Pt{-1, -1}) {
+			s.m[pos.Y][pos.X] = Air
+		}
+		if pt != (Pt{-1, -1}) {
+			s.m[pt.Y][pt.X] = b
+		}
+		pos = pt
+	}
 
 fallLoop:
 	for {
-		switch s.m.At(pt.Addn(0, +1)) {
+		switch s.m.At(addPt(pos, 0, +1)) {
 		case Void:
-			log.Println("falling off the map at", pt)
 			break fallLoop
 		case Air:
 			// We're still falling. Drop down.
-			pt = fall.set(pt.Addn(0, +1), Sand)
+			fall(addPt(pos, 0, +1), Sand)
 			continue
 		}
 
@@ -298,33 +283,34 @@ fallLoop:
 		// resting on a wall.
 
 		// See if we can rest on the left.
-		if s.offsetIsAir(pt, Pt{-1, +1}) {
+		if s.offsetIsAir(pos, Pt{-1, +1}) {
 			// We can rest on the left. Move left.
-			pt = fall.set(pt.Addn(-1, +1), Sand)
+			fall(addPt(pos, -1, +1), Sand)
 			continue
 		}
 
 		// See if we can rest on the right.
-		if s.offsetIsAir(pt, Pt{+1, +1}) {
+		if s.offsetIsAir(pos, Pt{+1, +1}) {
 			// We can rest on the right. Move right.
-			pt = fall.set(pt.Addn(+1, +1), Sand)
+			fall(addPt(pos, +1, +1), Sand)
 			continue
 		}
 
 		// We can't move left or right. We'll just sit here.
-		return fall.set(pt, RestingSand)
+		fall(pos, RestingSand)
+		return pos
 	}
 
 	// Check if sand is hitting the floor if we even have one.
-	log.Println("seeing floor at", s.floorY)
-	if s.floorY > 0 && pt.Y >= s.floorY {
+	if s.o.FloorY > 0 && pos.Y >= s.o.FloorY {
 		// If we have a floor, then we'll just sit here.
-		return fall.set(pt, RestingSand)
+		fall(pos, RestingSand)
+	} else {
+		// If we don't have a floor, then we'll just delete the sand.
+		fall(Pt{-1, -1}, Void)
 	}
 
-	// If we don't have a floor, then we'll just delete the sand.
-	fall.delete()
-	return Pt{-1, -1}
+	return pos
 }
 
 func (s *Simulator) offsetIsAir(pt Pt, offsets ...Pt) bool {
@@ -339,7 +325,7 @@ func (s *Simulator) offsetIsAir(pt Pt, offsets ...Pt) bool {
 				s.growX(offset.X)
 				// If we're not on floorY, then we're in the air, so we can
 				// continue.
-				if pt.Y != s.floorY {
+				if pt.Y != s.o.FloorY {
 					continue
 				}
 			}
@@ -353,40 +339,24 @@ func (s *Simulator) offsetIsAir(pt Pt, offsets ...Pt) bool {
 
 func (s *Simulator) growX(delta int) {
 	s.m.Grow(Pt{delta, 0})
-	// Fill the new floor if we have to.
-	if s.floorY > 0 {
-		for x := len(s.m[s.floorY]) - delta; x < len(s.m[s.floorY]); x++ {
-			s.m[s.floorY][x] = Rock
-		}
+	if s.o.FloorY > 0 {
+		s.fillFloor(len(s.m[0])-delta, len(s.m[0]))
 	}
 }
 
-type fallingState struct {
-	m     Map
-	start Pt
-	curr  Pt
-}
-
-func (s *fallingState) set(newPt Pt, newBlock Block) Pt {
-	s.delete()
-	s.m[newPt.Y][newPt.X] = newBlock
-	s.curr = newPt
-	return newPt
-}
-
-func (s *fallingState) delete() {
-	if s.curr != (Pt{-1, -1}) {
-		s.m[s.curr.Y][s.curr.X] = Air
+func (s *Simulator) fillFloor(x1, x2 int) {
+	for x := x1; x < x2 && x < len(s.m[s.o.FloorY]); x++ {
+		s.m[s.o.FloorY][x] = Rock
 	}
 }
 
 func (s *Simulator) PrintMap(w io.Writer) {
-	o := s.o.MapOpts
 	if w == io.Discard {
 		return
 	}
 
-	if o.End == (Pt{}) {
+	o := s.o.MapOpts
+	if o.End == ZP {
 		o.End = Pt{math.MaxInt, math.MaxInt}
 	}
 
@@ -394,10 +364,10 @@ func (s *Simulator) PrintMap(w io.Writer) {
 		for x := o.Start.X; x <= aocutil.Min2(len(s.m[y])-1, o.End.X); x++ {
 			switch {
 			case s.m[y][x] != Air:
-				w.Write([]byte{byte(s.m[y][x])})
+				w.Write([]byte{s.m[y][x]})
 			case o.Overlays[Pt{x, y}] != 0:
 				w.Write([]byte{o.Overlays[Pt{x, y}]})
-			case y == s.floorY:
+			case s.o.FloorY != 0 && y == s.o.FloorY:
 				w.Write([]byte{'#'})
 			default:
 				w.Write([]byte{Air})

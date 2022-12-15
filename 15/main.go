@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"sort"
 	"sync"
-	"sync/atomic"
 
 	"github.com/diamondburned/aoc-2022/aocutil"
 )
@@ -39,14 +38,13 @@ func part1(ctx context.Context, m Map, y int) {
 	min := Pt{math.MinInt, y}
 	max := Pt{math.MaxInt, y}
 
-	var count int64
+	countCh := make(chan int, 1)
 	sensorRanges(ctx, m, min, max, func(rs []Range) {
-		for _, r := range rs {
-			atomic.AddInt64(&count, int64(r.To.X-r.From.X+1))
-		}
+		r := rs[0]
+		countCh <- r.To.X - r.From.X + 1
 	})
 
-	fmt.Println("part 1:", count)
+	fmt.Println("part 1:", <-countCh)
 }
 
 func part2(ctx context.Context, m Map, max int) {

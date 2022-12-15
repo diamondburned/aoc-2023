@@ -41,7 +41,7 @@ func part1(ctx context.Context, m Map, y int) {
 	countCh := make(chan int, 1)
 	sensorRanges(ctx, m, min, max, func(rs []Range) {
 		r := rs[0]
-		countCh <- r.To.X - r.From.X + 1
+		countCh <- r.To.X - r.From.X
 	})
 
 	fmt.Println("part 1:", <-countCh)
@@ -72,6 +72,12 @@ func part2(ctx context.Context, m Map, max int) {
 	default:
 		fmt.Println("part 2: no distress signal found")
 	}
+}
+
+const distressC = 4_000_000
+
+func tuningFreq(pt Pt) int {
+	return (pt.X * distressC) + pt.Y
 }
 
 func sensorRanges(ctx context.Context, m Map, min, max Pt, fn func([]Range)) {
@@ -178,12 +184,6 @@ func sensorRanges(ctx context.Context, m Map, min, max Pt, fn func([]Range)) {
 			// ok
 		}
 	}
-}
-
-const distressC = 4_000_000
-
-func tuningFreq(pt Pt) int {
-	return (pt.X * distressC) + pt.Y
 }
 
 // Pt is a point in 2D space.

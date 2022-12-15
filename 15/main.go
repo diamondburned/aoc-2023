@@ -105,7 +105,7 @@ func sensorRanges(ctx context.Context, m Map, min, max Pt, fn func([]Range)) {
 				// We can use a trick here: we can calculate how much Range a
 				// single sensor has for a single row by subtracting its maximum
 				// distance to our Y, both of which are already calculated.
-				yDist := abs(y - sensor.At.Y)
+				yDist := aocutil.Abs(y - sensor.At.Y)
 				if sensor.Data.BeaconDistance < yDist {
 					continue
 				}
@@ -152,21 +152,13 @@ func sensorRanges(ctx context.Context, m Map, min, max Pt, fn func([]Range)) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case yrange, ok := <-in:
-					if !ok {
+			for yr := range in {
+				for y := yr[0]; y <= yr[1]; y++ {
+					select {
+					case <-ctx.Done():
 						return
-					}
-					for y := yrange[0]; y <= yrange[1]; y++ {
-						select {
-						case <-ctx.Done():
-							return
-						default:
-							do(y)
-						}
+					default:
+						do(y)
 					}
 				}
 			}
@@ -240,12 +232,5 @@ type Sensor struct {
 }
 
 func mdist(a, b Pt) int {
-	return abs(a.X-b.X) + abs(a.Y-b.Y)
-}
-
-func abs(n int) int {
-	if n < 0 {
-		return -n
-	}
-	return n
+	return aocutil.Abs(a.X-b.X) + aocutil.Abs(a.Y-b.Y)
 }

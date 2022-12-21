@@ -1,8 +1,3 @@
-set appr -1
-set abbr off
-set units off
-set unknowns on
-
 root() := function("pppw()",) = function("sjmn()",)
 dbpl() := 5
 cczh() := function("sllz()",) + function("lgvd()",)
@@ -17,4 +12,4 @@ pppw() := function("cczh()",) / function("lfqf()",)
 lgvd() := function("ljgn()",) * function("ptdq()",)
 drzm() := function("hmdt()",) - function("zczc()",)
 hmdt() := 32
-function('root("humn")',)
+function('root()',)

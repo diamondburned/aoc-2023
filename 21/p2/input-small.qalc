@@ -1,0 +1,20 @@
+set appr -1
+set abbr off
+set units off
+set unknowns on
+
+root() := function("pppw()",) = function("sjmn()",)
+dbpl() := 5
+cczh() := function("sllz()",) + function("lgvd()",)
+zczc() := 2
+ptdq() := "humn" - function("dvpt()",)
+dvpt() := 3
+lfqf() := 4
+ljgn() := 2
+sjmn() := function("drzm()",) * function("dbpl()",)
+sllz() := 4
+pppw() := function("cczh()",) / function("lfqf()",)
+lgvd() := function("ljgn()",) * function("ptdq()",)
+drzm() := function("hmdt()",) - function("zczc()",)
+hmdt() := 32
+function('root("humn")',)

@@ -1,0 +1,71 @@
+package main
+
+import (
+	"log"
+	"regexp"
+	"strconv"
+
+	"github.com/diamondburned/aoc-2022/aocutil"
+)
+
+var numberRe = regexp.MustCompile(
+	`(\d|one|two|three|four|five|six|seven|eight|nine)`,
+)
+
+func parseNumber(str string) int {
+	n, err := strconv.Atoi(str)
+	if err == nil {
+		return n
+	}
+
+	switch str {
+	case "one":
+		return 1
+	case "two":
+		return 2
+	case "three":
+		return 3
+	case "four":
+		return 4
+	case "five":
+		return 5
+	case "six":
+		return 6
+	case "seven":
+		return 7
+	case "eight":
+		return 8
+	case "nine":
+		return 9
+	}
+
+	log.Panic("invalid number:", str)
+	return 0
+}
+
+func main() {
+	input := aocutil.InputString()
+	lines := aocutil.SplitLines(input)
+
+	var sum int
+	for _, line := range lines {
+		numbers := numberRe.FindAllString(line, -1)
+		if len(numbers) == 0 {
+			continue
+		}
+		n := parseNumber(numbers[0]) * 10
+		for i := len(line) - 1; i >= 0; i-- {
+			numbers := numberRe.FindAllString(line[i:], 1)
+			if len(numbers) == 0 {
+				continue
+			}
+			n += parseNumber(numbers[0])
+			break
+		}
+		sum += n
+	}
+
+	println(sum)
+	// part1()
+	// part2()
+}

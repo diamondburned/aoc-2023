@@ -1,8 +1,4 @@
-let ov = self: super: {
-	go = super.go_1_19;
-};
-
-in { pkgs ? import <nixpkgs> { overlays = [ ov ]; } }:
+{ pkgs ? import <nixpkgs> {} }:
 
 let inputpaste = pkgs.writeShellScriptBin "inputpaste" ''
 	set -e

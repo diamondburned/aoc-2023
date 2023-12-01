@@ -20,22 +20,15 @@ import (
 	_ "gonum.org/v1/gonum"
 )
 
-// InputString reads the `input' file in the current directory and returns its
-// contents as a string.
-func InputString() string {
-	return ReadFile("input")
-}
-
-// InputBytes reads the `input' file in the current directory and returns its
-// contents as a byte slice.
-func InputBytes() []byte {
-	v := E2(os.ReadFile("input"))
-	return v
-}
-
 // ReadFile reads a file into a string, panicking if it fails.
 func ReadFile(name string) string {
 	v := E2(os.ReadFile(name))
+	return string(v)
+}
+
+// ReadStdin reads stdin into a string, panicking if it fails.
+func ReadStdin() string {
+	v := E2(io.ReadAll(os.Stdin))
 	return string(v)
 }
 

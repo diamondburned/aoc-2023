@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/diamondburned/aoc-2022/aocutil"
@@ -55,7 +56,7 @@ func searchNumber(str string, direction searchDirection) (int, bool) {
 }
 
 func main() {
-	input := aocutil.InputString()
+	input := aocutil.ReadStdin()
 	lines := aocutil.SplitLines(input)
 
 	var sum int
@@ -68,7 +69,7 @@ func main() {
 		sum += d1*10 + d2
 	}
 
-	println(sum)
+	fmt.Println(sum)
 	// part1()
 	// part2()
 }

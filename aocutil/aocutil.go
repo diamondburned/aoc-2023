@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"container/heap"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -19,6 +20,24 @@ import (
 	"github.com/mohae/deepcopy"
 	_ "gonum.org/v1/gonum"
 )
+
+var silent = false
+
+func init() {
+	flag.BoolVar(&silent, "s", false, "suppress output")
+	flag.Parse()
+
+	if silent {
+		log.SetOutput(io.Discard)
+	}
+}
+
+// Run runs the given functions with the given arguments.
+func Run(p1, p2 func(string) int) {
+	input := ReadStdin()
+	fmt.Println(p1(input))
+	fmt.Println(p2(input))
+}
 
 // ReadFile reads a file into a string, panicking if it fails.
 func ReadFile(name string) string {

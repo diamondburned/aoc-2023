@@ -32,11 +32,19 @@ func init() {
 	}
 }
 
-// Run runs the given functions with the given arguments.
+// Run runs the given functions with the stdin input.
 func Run(p1, p2 func(string) int) {
 	input := ReadStdin()
 	fmt.Println(p1(input))
 	fmt.Println(p2(input))
+}
+
+// ParseAndRun runs the given functions with the input after parsing it.
+func ParseAndRun[T any](parse func(string) T, p1, p2 func(T) int) {
+	input := ReadStdin()
+	value := parse(input)
+	fmt.Println(p1(value))
+	fmt.Println(p2(value))
 }
 
 // ReadFile reads a file into a string, panicking if it fails.

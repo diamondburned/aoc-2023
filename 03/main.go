@@ -119,7 +119,7 @@ func part1(input string) int {
 				sum += n
 			}
 
-			x = rect.Max.X
+			x = rect.Max.X - 1
 		}
 	}
 
@@ -148,7 +148,7 @@ func part2(input string) int {
 				return false
 			})
 
-			x = rect.Max.X
+			x = rect.Max.X - 1
 		}
 	}
 

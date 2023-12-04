@@ -829,6 +829,14 @@ func NewSet[T comparable](cap int) Set[T] {
 	return make(Set[T], cap)
 }
 
+func NewSetFromSlice[T comparable](v []T) Set[T] {
+	set := NewSet[T](len(v))
+	for _, v := range v {
+		set.Add(v)
+	}
+	return set
+}
+
 // Add adds the given value to the set.
 func (s Set[T]) Add(v T) { s[v] = struct{}{} }
 

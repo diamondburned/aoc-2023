@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"slices"
 	"strings"
@@ -25,29 +24,6 @@ const (
 	chunkHumidityToLocation
 	chunkCount
 )
-
-func chunkToString(chunk int) string {
-	switch chunk {
-	case chunkSeeds:
-		return "seeds"
-	case chunkSeedToSoil:
-		return "seed to soil"
-	case chunkSoilToFertilizer:
-		return "soil to fertilizer"
-	case chunkFertilizerToWater:
-		return "fertilizer to water"
-	case chunkWaterToLight:
-		return "water to light"
-	case chunkLightToTemperature:
-		return "light to temperature"
-	case chunkTemperatureToHumidity:
-		return "temperature to humidity"
-	case chunkHumidityToLocation:
-		return "humidity to location"
-	default:
-		return "unknown"
-	}
-}
 
 type Almanac struct {
 	Seeds                 [][2]int
@@ -124,59 +100,20 @@ func (r Range) Except(other Range) []Range {
 type RangeMap []RangeMapItem
 
 func (rm RangeMap) SortBySource() {
-	slices.SortFunc(rm, func(a, b RangeMapItem) int { return a.SourceStart - b.SourceStart })
+	slices.SortFunc(rm, func(a, b RangeMapItem) int {
+		return a.SourceStart - b.SourceStart
+	})
 }
 
 func (rm RangeMap) SortByDestination() {
-	slices.SortFunc(rm, func(a, b RangeMapItem) int { return a.DestinationStart - b.DestinationStart })
-}
-
-// SearchSource searches for the given value in the source range.
-func (rm RangeMap) SearchSource(value int) (RangeMapItem, bool) {
-	v, _ := slices.BinarySearchFunc(rm, value, func(r RangeMapItem, t int) int {
-		// log.Printf("   testing %d in %v:", t, r)
-		if r.SourceIsInRange(t) {
-			// log.Printf("      in range")
-			return 0
-		}
-		if t < r.SourceStart {
-			// log.Printf("      too low")
-			return 1
-		}
-		// log.Printf("      too high")
-		return -1
+	slices.SortFunc(rm, func(a, b RangeMapItem) int {
+		return a.DestinationStart - b.DestinationStart
 	})
-	if v < 0 || v >= len(rm) {
-		// log.Printf("   not found: %d", v)
-		return RangeMapItem{}, false
-	}
-
-	r := rm[v]
-	if !r.SourceIsInRange(value) {
-		// log.Printf("   not found: %d", v)
-		return RangeMapItem{}, false
-	}
-
-	// log.Printf("   found: %d (%v)", v, r)
-	return r, true
-}
-
-// MapSource is a convenience function that searches for the given value in the
-// source range and returns the destination value. If the value is not found,
-// the default value is returned.
-func (rm RangeMap) MapSource(value int, defaultValue int) int {
-	r, ok := rm.SearchSource(value)
-	if !ok {
-		return defaultValue
-	}
-	return r.SourceToDestination(value)
 }
 
 // MapSourceRange searches for the given range in the source range.
 // The destination range in valueRange is ignored.
 func (rm RangeMap) MapSourceRange(v Range) []Range {
-	log.Printf("    searching for %v in range map", v)
-
 	inputs := []Range{v}
 	var ranges []Range
 
@@ -186,13 +123,10 @@ queueLoop:
 		inputs = inputs[1:]
 
 		for _, r := range rm {
-			// Try to calculate the intersection of the source range and the given
-			// range.
+			// Try to calculate the intersection of the source range and the
+			// given range.
 			intersection := r.SourceRange().Intersect(v)
 			if intersection.Length == 0 {
-				log.Printf("      no intersection between %v and %v",
-					v,
-					r.SourceRange())
 				continue
 			}
 
@@ -200,13 +134,6 @@ queueLoop:
 			dstStart := r.SourceToDestination(intersection.Start)
 			dstEnd := r.SourceToDestination(intersection.Start + intersection.Length - 1)
 			dstLen := dstEnd - dstStart + 1
-
-			log.Printf("      intersection between %v and %v (->%v): %d-%d -> %d-%d",
-				v,
-				r.SourceRange(),
-				r.DestinationRange(),
-				intersection.Start, intersection.Start+intersection.Length-1,
-				dstStart, dstEnd)
 
 			ranges = append(ranges, Range{
 				Start:  dstStart,
@@ -221,10 +148,6 @@ queueLoop:
 
 			// Otherwise, we need to search for the remaining parts.
 			inputs = append(inputs, v.Except(intersection)...)
-
-			// Sort the inputs by length, so that we can process the smallest
-			// ranges first.
-			slices.SortFunc(inputs, func(a, b Range) int { return a.Length - b.Length })
 
 			// We can stop searching for more ranges in the current range.
 			continue queueLoop
@@ -265,10 +188,7 @@ func (r RangeMapItem) SourceToDestination(value int) int {
 	if !r.SourceIsInRange(value) {
 		panic("value is not in range")
 	}
-	// log.Printf("   converting %d in %v:", value, r)
-	dst := r.DestinationStart + (value - r.SourceStart)
-	// log.Printf("      %d -> %d", value, dst)
-	return dst
+	return r.DestinationStart + (value - r.SourceStart)
 }
 
 func parseAlmanac(input string, partNum int) Almanac {
@@ -334,7 +254,8 @@ func part1(input string) int {
 	for _, seed := range almanac.Seeds {
 		n := seed[0]
 		for _, rangeMaps := range almanac.RangeMaps() {
-			n = rangeMaps.MapSource(n, n)
+			r := rangeMaps.MapSourceRange(Range{n, 1})
+			n = r[0].Start
 		}
 		minDist = min(minDist, n)
 	}
@@ -353,27 +274,21 @@ func part2(input string) int {
 		}
 	}
 
-	for i, rangeMap := range almanac.RangeMaps() {
-		log.Printf("doing chunk %s", chunkToString(i+1))
+	for _, rangeMap := range almanac.RangeMaps() {
 		nextRanges := make([]Range, 0, len(currentRanges))
-
 		for _, currentRange := range currentRanges {
-			log.Printf("  for range %v", currentRange)
-
 			nextRange := rangeMap.MapSourceRange(currentRange)
 			if nextRange == nil {
 				nextRanges = []Range{currentRange}
 			}
-
 			nextRanges = append(nextRanges, nextRange...)
 		}
-
 		currentRanges = nextRanges
 	}
 
 	minDist := math.MaxInt
-	for _, range_ := range currentRanges {
-		minDist = min(minDist, range_.Start)
+	for _, r := range currentRanges {
+		minDist = min(minDist, r.Start)
 	}
 
 	return minDist

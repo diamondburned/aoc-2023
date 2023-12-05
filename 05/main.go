@@ -26,26 +26,8 @@ const (
 )
 
 type Almanac struct {
-	Seeds                 [][2]int
-	SeedToSoil            RangeMap
-	SoilToFertilizer      RangeMap
-	FertilizerToWater     RangeMap
-	WaterToLight          RangeMap
-	LightToTemperature    RangeMap
-	TemperatureToHumidity RangeMap
-	HumidityToLocation    RangeMap
-}
-
-func (a Almanac) RangeMaps() []RangeMap {
-	return []RangeMap{
-		a.SeedToSoil,
-		a.SoilToFertilizer,
-		a.FertilizerToWater,
-		a.WaterToLight,
-		a.LightToTemperature,
-		a.TemperatureToHumidity,
-		a.HumidityToLocation,
-	}
+	Seeds     [][2]int
+	RangeMaps []RangeMap
 }
 
 type Range struct {
@@ -55,16 +37,18 @@ type Range struct {
 
 // String returns a string representation of the range.
 func (r Range) String() string {
-	return fmt.Sprintf("[%d, %d)", r.Start, r.Start+r.Length)
+	return fmt.Sprintf("[%d, %d)", r.Start, r.End())
+}
+
+// End returns the end of the range. It is an inclusive bound.
+func (r Range) End() int {
+	return r.Start + r.Length
 }
 
 // Intersect returns the intersection of the two ranges.
 func (r Range) Intersect(other Range) Range {
 	start := max(r.Start, other.Start)
-	end := min(r.Start+r.Length, other.Start+other.Length)
-	if start >= end {
-		return Range{}
-	}
+	end := max(min(r.End(), other.End()), start)
 	return Range{
 		Start:  start,
 		Length: end - start,
@@ -74,10 +58,6 @@ func (r Range) Intersect(other Range) Range {
 // Except returns the ranges that are not in the other range.
 // It may return a maximum of two ranges, one on the left and one on the right.
 func (r Range) Except(other Range) []Range {
-	if other.Start <= r.Start && other.Start+other.Length >= r.Start+r.Length {
-		return nil
-	}
-
 	var ranges []Range
 	if other.Start > r.Start {
 		ranges = append(ranges, Range{
@@ -85,13 +65,12 @@ func (r Range) Except(other Range) []Range {
 			Length: other.Start - r.Start,
 		})
 	}
-	if other.Start+other.Length < r.Start+r.Length {
+	if other.End() < r.End() {
 		ranges = append(ranges, Range{
 			Start:  other.Start + other.Length,
-			Length: r.Start + r.Length - (other.Start + other.Length),
+			Length: r.End() - other.End(),
 		})
 	}
-
 	return ranges
 }
 
@@ -105,17 +84,11 @@ func (rm RangeMap) SortBySource() {
 	})
 }
 
-func (rm RangeMap) SortByDestination() {
-	slices.SortFunc(rm, func(a, b RangeMapItem) int {
-		return a.DestinationStart - b.DestinationStart
-	})
-}
-
 // MapSourceRange searches for the given range in the source range.
 // The destination range in valueRange is ignored.
 func (rm RangeMap) MapSourceRange(v Range) []Range {
 	inputs := []Range{v}
-	var ranges []Range
+	ranges := make([]Range, 0, 1)
 
 queueLoop:
 	for len(inputs) > 0 {
@@ -140,16 +113,8 @@ queueLoop:
 				Length: dstLen,
 			})
 
-			// If the intersection is the same as the source range, we can stop
-			// searching.
-			if intersection.Start == v.Start && intersection.Length == v.Length {
-				continue queueLoop
-			}
-
-			// Otherwise, we need to search for the remaining parts.
+			// Insert any other ranges that are not in the intersection.
 			inputs = append(inputs, v.Except(intersection)...)
-
-			// We can stop searching for more ranges in the current range.
 			continue queueLoop
 		}
 
@@ -169,10 +134,12 @@ type RangeMapItem struct {
 	Length int
 }
 
+// SourceRange returns the source range.
 func (r RangeMapItem) SourceRange() Range {
 	return Range{r.SourceStart, r.Length}
 }
 
+// DestinationRange returns the destination range.
 func (r RangeMapItem) DestinationRange() Range {
 	return Range{r.DestinationStart, r.Length}
 }
@@ -193,7 +160,7 @@ func (r RangeMapItem) SourceToDestination(value int) int {
 
 func parseAlmanac(input string, partNum int) Almanac {
 	chunks := strings.Split(input, "\n\n")[:chunkCount]
-	chunks = aocutil.Filter(chunks, func(s string) bool { return s != "" })
+	chunks = aocutil.FilterEmptyStrings(chunks)
 	for i, chunk := range chunks {
 		if i == 0 {
 			_, value, _ := strings.Cut(chunk, ": ")
@@ -221,8 +188,9 @@ func parseAlmanac(input string, partNum int) Almanac {
 		}
 	}
 
-	parseMap := func(chunk int) RangeMap {
-		lines := aocutil.SplitLines(chunks[chunk])
+	almanac.RangeMaps = make([]RangeMap, 0, chunkCount-1)
+	for i := chunkSeedToSoil; i <= chunkHumidityToLocation; i++ {
+		lines := aocutil.SplitLines(chunks[i])
 		rmap := make(RangeMap, len(lines))
 		for i, line := range lines {
 			nums := aocutil.Atois[int](strings.Fields(line))
@@ -233,16 +201,8 @@ func parseAlmanac(input string, partNum int) Almanac {
 			}
 		}
 		rmap.SortBySource()
-		return rmap
+		almanac.RangeMaps = append(almanac.RangeMaps, rmap)
 	}
-
-	almanac.SeedToSoil = parseMap(chunkSeedToSoil)
-	almanac.SoilToFertilizer = parseMap(chunkSoilToFertilizer)
-	almanac.FertilizerToWater = parseMap(chunkFertilizerToWater)
-	almanac.WaterToLight = parseMap(chunkWaterToLight)
-	almanac.LightToTemperature = parseMap(chunkLightToTemperature)
-	almanac.TemperatureToHumidity = parseMap(chunkTemperatureToHumidity)
-	almanac.HumidityToLocation = parseMap(chunkHumidityToLocation)
 
 	return almanac
 }
@@ -253,7 +213,7 @@ func part1(input string) int {
 
 	for _, seed := range almanac.Seeds {
 		n := seed[0]
-		for _, rangeMaps := range almanac.RangeMaps() {
+		for _, rangeMaps := range almanac.RangeMaps {
 			r := rangeMaps.MapSourceRange(Range{n, 1})
 			n = r[0].Start
 		}
@@ -266,30 +226,21 @@ func part1(input string) int {
 func part2(input string) int {
 	almanac := parseAlmanac(input, 2)
 
-	currentRanges := make([]Range, len(almanac.Seeds))
-	for i, seedRange := range almanac.Seeds {
-		currentRanges[i] = Range{
-			Start:  seedRange[0],
-			Length: seedRange[1] - seedRange[0],
-		}
-	}
+	currentRanges := aocutil.Transform(
+		almanac.Seeds,
+		func(seed [2]int) Range { return Range{seed[0], seed[1] - seed[0]} },
+	)
 
-	for _, rangeMap := range almanac.RangeMaps() {
+	for _, rangeMap := range almanac.RangeMaps {
 		nextRanges := make([]Range, 0, len(currentRanges))
 		for _, currentRange := range currentRanges {
 			nextRange := rangeMap.MapSourceRange(currentRange)
-			if nextRange == nil {
-				nextRanges = []Range{currentRange}
-			}
 			nextRanges = append(nextRanges, nextRange...)
 		}
 		currentRanges = nextRanges
 	}
 
-	minDist := math.MaxInt
-	for _, r := range currentRanges {
-		minDist = min(minDist, r.Start)
-	}
-
-	return minDist
+	return aocutil.Mins(aocutil.Transform(
+		currentRanges,
+		func(r Range) int { return r.Start })...)
 }

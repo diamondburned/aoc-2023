@@ -97,6 +97,17 @@ func SplitLineFields(s string) [][]string {
 	return fields
 }
 
+// FilterEmptyStrings returns strs with empty strings removed.
+func FilterEmptyStrings(strs []string) []string {
+	strs2 := strs[:0]
+	for _, s := range strs {
+		if s != "" {
+			strs2 = append(strs2, s)
+		}
+	}
+	return strs2
+}
+
 // Sscanf is a wrapper around fmt.Sscanf that panics on error.
 func Sscanf(s string, format string, args ...interface{}) {
 	_, err := fmt.Sscanf(s, format, args...)

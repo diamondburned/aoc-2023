@@ -246,6 +246,14 @@ func Count[T comparable](slice []T, v T) int {
 	return count
 }
 
+// MaybeAt returns the element at index i, or nil if i is out of bounds.
+func MaybeAt[T comparable](slice []T, i int) *T {
+	if i < 0 || i >= len(slice) {
+		return nil
+	}
+	return &slice[i]
+}
+
 // Index returns the index of the first instance of v in slice, or -1 if v is
 // not in slice.
 func Index[T comparable](slice []T, v T) int {

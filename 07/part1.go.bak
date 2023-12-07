@@ -1,0 +1,159 @@
+package main
+
+import (
+	"slices"
+	"strings"
+
+	"github.com/diamondburned/aoc-2022/aocutil"
+)
+
+func main() {
+	aocutil.Run(part1, part2)
+}
+
+// Card is a card in a deck.
+type Card byte
+
+// Less returns true if c is less than other.
+func (c Card) Compare(other Card) int {
+	v1 := c.toValue()
+	v2 := other.toValue()
+	if v1 < v2 {
+		return -1
+	}
+	if v1 > v2 {
+		return 1
+	}
+	return 0
+}
+
+func (c Card) toValue() int {
+	if '2' <= c && c <= '9' {
+		return int(c - '2')
+	}
+	switch c {
+	case 'T':
+		return 8
+	case 'J':
+		return 9
+	case 'Q':
+		return 10
+	case 'K':
+		return 11
+	case 'A':
+		return 12
+	default:
+		return -1
+	}
+}
+
+type HandType uint
+
+const (
+	HighCard HandType = iota
+	OnePair
+	TwoPair
+	ThreeOfAKind
+	FullHouse
+	FourOfAKind
+	FiveOfAKind
+)
+
+// Hand is a hand of cards.
+type Hand [5]Card
+
+// Type returns the type of the hand.
+func (h Hand) Type() HandType {
+	freq := make(map[Card]int)
+	for _, c := range h {
+		freq[c]++
+	}
+	if len(freq) == 1 {
+		return FiveOfAKind
+	}
+	if len(freq) == 2 {
+		for _, v := range freq {
+			if v == 4 {
+				return FourOfAKind
+			}
+			if v == 3 {
+				return FullHouse
+			}
+		}
+	}
+	if len(freq) == 3 {
+		for _, v := range freq {
+			if v == 3 {
+				return ThreeOfAKind
+			}
+			if v == 2 {
+				return TwoPair
+			}
+		}
+	}
+	if len(freq) == 4 {
+		return OnePair
+	}
+	return HighCard
+}
+
+func (h Hand) Compare(other Hand) int {
+	h1 := h.Type()
+	h2 := other.Type()
+	if h1 < h2 {
+		return -1
+	}
+	if h1 > h2 {
+		return 1
+	}
+	for i := 0; i < 5; i++ {
+		c1 := h[i]
+		c2 := other[i]
+		cx := c1.Compare(c2)
+		if cx != 0 {
+			return cx
+		}
+	}
+	return 0
+}
+
+type BiddingHand struct {
+	Hand Hand
+	Bid  int
+}
+
+func parseInput(input string) []BiddingHand {
+	lines := aocutil.SplitLines(input)
+	lines = aocutil.FilterEmptyStrings(lines)
+
+	hands := make([]BiddingHand, len(lines))
+	for i, line := range lines {
+		k, v, _ := strings.Cut(line, " ")
+		hands[i].Hand = [5]Card([]Card(k))
+		hands[i].Bid = aocutil.Atoi[int](v)
+	}
+	return hands
+}
+
+func part1(input string) int {
+	hands := parseInput(input)
+	slices.SortFunc(hands, func(a, b BiddingHand) int {
+		return a.Hand.Compare(b.Hand)
+	})
+
+	for i := range hands {
+		rank := i + 1
+		hands[i].Bid *= rank
+	}
+
+	var winnings int
+	for _, hand := range hands {
+		winnings += hand.Bid
+	}
+
+	return winnings
+}
+
+func part2(input string) int {
+	return 0
+}

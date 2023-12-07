@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"strings"
 
 	"github.com/diamondburned/aoc-2022/aocutil"
@@ -56,18 +55,12 @@ func beatsRace(race RaceRecord, holdingMs int) bool {
 func part1(input string) int {
 	records := parseRecords(input, 1)
 	totalMul := 1
-	for i, record := range records {
-		log.Printf("for race[%d], record=%v", i, record)
+	for _, record := range records {
 		var totalWays int
 		for i := 1; i < record.Time; i++ {
 			if beatsRace(record, i) {
 				totalWays++
 			}
-			// if beatsRace(record, i) {
-			// 	log.Printf("  holding for %dms beats the race", i)
-			// } else {
-			// 	log.Printf("  holding for %dms does not work", i)
-			// }
 		}
 		totalMul *= totalWays
 	}
@@ -78,21 +71,14 @@ func part1(input string) int {
 func part2(input string) int {
 	records := parseRecords(input, 2)
 	totalMul := 1
-	for i, record := range records {
-		log.Printf("for race[%d], record=%v", i, record)
+	for _, record := range records {
 		var totalWays int
 		for i := 1; i < record.Time; i++ {
 			if beatsRace(record, i) {
 				totalWays++
 			}
-			// if beatsRace(record, i) {
-			// 	log.Printf("  holding for %dms beats the race", i)
-			// } else {
-			// 	log.Printf("  holding for %dms does not work", i)
-			// }
 		}
 		totalMul *= totalWays
 	}
-
 	return totalMul
 }

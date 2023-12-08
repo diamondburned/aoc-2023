@@ -28,19 +28,6 @@ func (c Card) String() string {
 
 // Less returns true if c is less than other.
 func (c Card) Compare(other Card) int {
-	if c.WasJoker == other.WasJoker {
-		return c.compare(other)
-	}
-	if c.WasJoker {
-		c.Label = 'J'
-	}
-	if other.WasJoker {
-		other.Label = 'J'
-	}
-	return c.compare(other)
-}
-
-func (c Card) compare(other Card) int {
 	v1 := c.toValue()
 	v2 := other.toValue()
 	if v1 < v2 {

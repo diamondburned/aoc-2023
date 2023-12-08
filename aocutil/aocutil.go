@@ -920,3 +920,33 @@ func (w *prefixedWriter) Write(b []byte) (int, error) {
 func Clone[T any](in T) T {
 	return deepcopy.Copy(in).(T)
 }
+
+// GCD returns the greatest common divisor of a and b.
+func GCD(a, b int) int {
+	for b != 0 {
+		t := b
+		b = a % b
+		a = t
+	}
+	return a
+}
+
+// LCM returns the least common multiple of the given integers.
+// If only one integer is given, it is returned.
+func LCM(integers ...int) int {
+	if len(integers) < 2 {
+		return integers[0]
+	}
+
+	a := integers[0]
+	b := integers[1]
+	integers = integers[2:]
+
+	result := a * b / GCD(a, b)
+
+	for i := 0; i < len(integers); i++ {
+		result = LCM(result, integers[i])
+	}
+
+	return result
+}

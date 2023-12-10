@@ -40,12 +40,9 @@ func (s Sequence) AllZeroes() bool {
 // differences between each element in the previous sequence, and so on.
 func (s Sequence) AllDifferences() []Sequence {
 	diffs := []Sequence{s}
-	for {
+	for !s.AllZeroes() {
 		s = s.Differences()
 		diffs = append(diffs, s)
-		if s.AllZeroes() {
-			break
-		}
 	}
 	return diffs
 }
@@ -69,7 +66,7 @@ func parseInput(input string) []Sequence {
 // all sequences.
 func extrapolateSequence(diffs []Sequence, left, right bool) []Sequence {
 	// Copy so we can append to the last sequence.
-	diffs = append([]Sequence(nil), diffs...)
+	diffs = slices.Clone(diffs)
 
 	// Assert that the last sequence is all zeroes.
 	zeroes := diffs[len(diffs)-1]
@@ -77,7 +74,6 @@ func extrapolateSequence(diffs []Sequence, left, right bool) []Sequence {
 		panic("last sequence is not all zeroes")
 	}
 
-	// This is just a bunch of zeroes. Add one more zero to the end.
 	if right {
 		zeroes = append(zeroes, 0)
 	}
@@ -93,18 +89,14 @@ func extrapolateSequence(diffs []Sequence, left, right bool) []Sequence {
 			// and adding that with the current value.
 			lowerDiff := lowerDiffs[len(lowerDiffs)-1]
 			currentDiff := currentDiffs[len(currentDiffs)-1]
-
-			extrapolated := currentDiff + lowerDiff
-			diffs[i] = append(diffs[i], extrapolated)
+			diffs[i] = append(diffs[i], currentDiff+lowerDiff)
 		}
 		if left {
 			// Extrapolate by getting the matching value of the lower sequence
 			// and subtracting that with the current value.
 			lowerDiff := lowerDiffs[0]
 			currentDiff := currentDiffs[0]
-
-			extrapolated := currentDiff - lowerDiff
-			diffs[i] = append(Sequence{extrapolated}, diffs[i]...)
+			diffs[i] = slices.Insert(diffs[i], 0, currentDiff-lowerDiff)
 		}
 	}
 

@@ -12,8 +12,5 @@ in pkgs.mkShell {
 		go
 		gopls
 		gotools
-		zls
-		zig
-		inputpaste
 	];
 }

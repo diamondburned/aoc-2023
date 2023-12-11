@@ -169,13 +169,10 @@ func (m Map) FindStart() image.Point {
 	panic("no start found")
 }
 
-// PipeBitmap is a blown up map, where each block is represented by a 3x3 pixel
-// square. This square accurately describes the shape of the block so that
-// a path is a regular line.
-type PipeBitmap = image.Paletted
-
-// NewPipeBitmap creates a PipeBitmap from a Map.
-func NewPipeBitmap(m Map) *PipeBitmap {
+// NewPipeBitmap creates a new image from the given map, where each block is
+// represented by a 3x3 pixel square. This square accurately describes the shape
+// of the block so that a path is a regular line.
+func NewPipeBitmap(m Map) *image.Paletted {
 	img := image.NewPaletted(image.Rect(0, 0, len(m[0])*3, len(m)*3), []color.Color{
 		color.White, // ground
 		color.Black, // pipe
@@ -211,14 +208,9 @@ func NewPipeBitmap(m Map) *PipeBitmap {
 	return img
 }
 
-type FilledPipeBitmap struct {
-	*PipeBitmap
-	FilledColors []color.Color
-}
-
 // FloodFill fills the bitmap with the given color, starting at the given
 // point. It returns the number of pixels filled.
-func FloodFill(img *PipeBitmap, start image.Point, color uint8) int {
+func FloodFill(img *image.Paletted, start image.Point, color uint8) int {
 	if color == 0 {
 		panic("color 0 is reserved")
 	}
@@ -253,10 +245,6 @@ func FloodFill(img *PipeBitmap, start image.Point, color uint8) int {
 	return filled
 }
 
-func floodFill(img *PipeBitmap, pt image.Point, colorIx int) {
-
-}
-
 // getSinglePaletteColor returns the index of the color in the palette at the
 // given rectangle. It returns 0 if the rectangle contains multiple colors.
 func getSinglePaletteColor(img *image.Paletted, r image.Rectangle) uint8 {
@@ -276,7 +264,12 @@ func getSinglePaletteColor(img *image.Paletted, r image.Rectangle) uint8 {
 func part1(stdin string) int {
 	m := parseInput(stdin)
 	s := m.FindStart()
-	return m.TraverseMaxDist(s)
+	var maxDist int
+	m.TraverseFrom(s, func(pt image.Point, dist int) bool {
+		maxDist = max(maxDist, dist)
+		return true
+	})
+	return maxDist
 }
 
 func part2(stdin string) int {

@@ -8,3 +8,7 @@ require (
 	golang.org/x/exp v0.0.0-20221114191408-850992195362
 	gonum.org/v1/gonum v0.12.0
 )
+
+require github.com/mxschmitt/golang-combinations v1.2.0
+
+require github.com/liyue201/gostl v1.2.0 // indirect

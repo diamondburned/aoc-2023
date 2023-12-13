@@ -2,10 +2,11 @@ package main
 
 import (
 	"log"
-	"slices"
 	"strings"
+	"sync/atomic"
 
 	"github.com/diamondburned/aoc-2022/aocutil"
+	"github.com/sourcegraph/conc/iter"
 )
 
 func main() {
@@ -57,17 +58,12 @@ func (r SpringsRecord) Unfold(repeats int) SpringsRecord {
 	return new
 }
 
-func totalValid(springs SpringsRecord) int {
+func countValid(springs SpringsRecord) int {
 	type countFunc func(springs SpringsConditions, n int, damagedRuns []int) int
 	var count countFunc
 	var countActual countFunc
 
-	type cacheKey struct {
-		Remaining   SpringsConditions
-		DamagedRuns []int
-	}
-
-	cache := aocutil.NewAnyMap[cacheKey, int]()
+	cache := make(map[string]int)
 
 	count = func(springs SpringsConditions, n int, damagedRuns []int) int {
 		var count int
@@ -82,15 +78,16 @@ func totalValid(springs SpringsRecord) int {
 			}()
 		}
 
-		var ok bool
-		key := cacheKey{springs[n:], damagedRuns}
+		key := string(springs[n:]) +
+			" " + strings.Join(aocutil.Itoas(damagedRuns), ",")
 
-		if count, ok = cache.Get(key); ok {
+		var ok bool
+		if count, ok = cache[key]; ok {
 			return count
 		}
 
 		count = countActual(springs, n, damagedRuns)
-		cache.Set(key, count)
+		cache[key] = count
 
 		return count
 	}
@@ -99,6 +96,7 @@ func totalValid(springs SpringsRecord) int {
 		// Base case.
 		if n == len(springs) {
 			switch {
+			// Base case: we're expecting no more damaged runs.
 			case len(damagedRuns) == 0:
 			case len(damagedRuns) == 1 && damagedRuns[0] == 0:
 			default:
@@ -119,7 +117,6 @@ func totalValid(springs SpringsRecord) int {
 				} else if n != 0 && springs[n-1] == Damaged {
 					// We're still expecting more damaged runs.
 					// This is not valid.
-					// ⎸⎸⎸⎸⎸⎸⎸⎸".###.#??????" [2 1]
 					return 0
 				}
 			}
@@ -135,14 +132,16 @@ func totalValid(springs SpringsRecord) int {
 			}
 
 			damagedRuns[0]--
-			return count(springs, n+1, damagedRuns)
+			count := count(springs, n+1, damagedRuns)
+			damagedRuns[0]++
+			return count
 
 		case Unknown:
 			// Expect either operational or damaged.
 			springs = aocutil.ReplaceStringIndex(springs, n, SpringsConditions(Operational))
-			a := count(springs, n, slices.Clone(damagedRuns))
+			a := count(springs, n, damagedRuns)
 			springs = aocutil.ReplaceStringIndex(springs, n, SpringsConditions(Damaged))
-			b := count(springs, n, slices.Clone(damagedRuns))
+			b := count(springs, n, damagedRuns)
 			return a + b
 
 		default:
@@ -150,25 +149,28 @@ func totalValid(springs SpringsRecord) int {
 		}
 	}
 
-	log.Printf("totalValid(%s, %v)\n", springs.Conditions, springs.DamagedRuns)
-	valid := count(springs.Conditions, 0, springs.DamagedRuns)
-	log.Printf("  = %d\n", valid)
-	return valid
+	return count(springs.Conditions, 0, springs.DamagedRuns)
 }
 
 func part1(input string) int {
+	rows := parseInput(input)
+
 	var total int
-	for _, row := range parseInput(input) {
-		total += totalValid(row)
+	for _, row := range rows {
+		total += countValid(row)
 	}
+
 	return total
 }
 
 func part2(input string) int {
-	var total int
-	for _, row := range parseInput(input) {
-		row = row.Unfold(5)
-		total += totalValid(row)
-	}
-	return total
+	rows := parseInput(input)
+
+	var total atomic.Int64
+	iter.ForEach(rows, func(row *SpringsRecord) {
+		valids := countValid(row.Unfold(5))
+		total.Add(int64(valids))
+	})
+
+	return int(total.Load())
 }

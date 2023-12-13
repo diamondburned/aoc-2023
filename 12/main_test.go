@@ -31,7 +31,7 @@ func TestTotalValid(t *testing.T) {
 				t.Skip()
 			}
 			in := SpringsRecord{tt.in1, tt.in2}
-			if got := totalValid(in); got != tt.want {
+			if got := countValid(in); got != tt.want {
 				t.Errorf("TotalValid(%v) = %v, want %v", in, got, tt.want)
 				fail = true
 			}
@@ -47,6 +47,6 @@ func BenchmarkTotalValid(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		totalValid(input)
+		countValid(input)
 	}
 }

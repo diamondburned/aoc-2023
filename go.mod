@@ -9,6 +9,15 @@ require (
 	gonum.org/v1/gonum v0.12.0
 )
 
-require github.com/mxschmitt/golang-combinations v1.2.0
+require (
+	github.com/fxamacker/cbor/v2 v2.5.0
+	github.com/hashicorp/golang-lru/v2 v2.0.7
+	github.com/sourcegraph/conc v0.3.0
+	gopkg.in/typ.v4 v4.3.0
+)
 
-require github.com/liyue201/gostl v1.2.0 // indirect
+require (
+	github.com/x448/float16 v0.8.4 // indirect
+	go.uber.org/atomic v1.7.0 // indirect
+	go.uber.org/multierr v1.9.0 // indirect
+)

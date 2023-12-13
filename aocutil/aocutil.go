@@ -12,34 +12,41 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"unsafe"
 
+	"github.com/mohae/deepcopy"
 	"golang.org/x/exp/constraints"
+	"gonum.org/v1/gonum/stat/combin"
 
 	_ "github.com/davecgh/go-spew/spew"
-	"github.com/mohae/deepcopy"
+	_ "github.com/sourcegraph/conc"
 	_ "gonum.org/v1/gonum"
-	"gonum.org/v1/gonum/stat/combin"
 )
 
-var silent = false
+var silent atomic.Bool
 
 func init() {
-	if testing.Testing() {
-		return
+	if !testing.Testing() {
+		silent_ := flag.Bool("s", false, "suppress output")
+		flag.Parse()
+		silent.Store(*silent_)
 	}
 
-	flag.BoolVar(&silent, "s", false, "suppress output")
-	flag.Parse()
-
-	if silent {
-		log.SetOutput(io.Discard)
+	if silent.Load() {
+		SilenceLogging()
 	}
 }
 
 // IsSilent returns true if the -s flag is given.
-func IsSilent() bool { return silent }
+func IsSilent() bool { return silent.Load() }
+
+// SilenceLogging disables logging.
+func SilenceLogging() {
+	silent.Store(true)
+	log.SetOutput(io.Discard)
+}
 
 // Iter copies x/exp/xiter.
 type Iter[T any] func(yield func(T) bool) bool
@@ -187,6 +194,17 @@ func Atoi[T constraints.Signed](a string) T {
 // Atois converts a slice of strings to a slice of ints, panicking if it fails.
 func Atois[T constraints.Signed](a []string) []T {
 	return Map(a, Atoi[T])
+}
+
+// Itoa converts an int to a string.
+func Itoa[T constraints.Signed](v T) string {
+	s := strconv.FormatInt(int64(v), 10)
+	return s
+}
+
+// Itoas converts a slice of ints to a slice of strings.
+func Itoas[T constraints.Signed](a []T) []string {
+	return Map(a, Itoa[T])
 }
 
 // Atou converts a string to an uint, panicking if it fails.
@@ -894,37 +912,6 @@ func MapPairs[K comparable, V any](m map[K]V) []Pair[K, V] {
 	return pairs
 }
 
-// Set is a set of values.
-type Set[T comparable] map[T]struct{}
-
-// NewSet returns a new set.
-func NewSet[T comparable](cap int) Set[T] {
-	return make(Set[T], cap)
-}
-
-func NewSetFromSlice[T comparable](v []T) Set[T] {
-	set := NewSet[T](len(v))
-	for _, v := range v {
-		set.Add(v)
-	}
-	return set
-}
-
-// Add adds the given value to the set.
-func (s Set[T]) Add(v T) { s[v] = struct{}{} }
-
-// Delete deletes the given value from the set.
-func (s Set[T]) Delete(v T) { delete(s, v) }
-
-// Has returns true if the set contains the given value.
-func (s Set[T]) Has(v T) bool {
-	_, ok := s[v]
-	return ok
-}
-
-// Reset resets the set.
-func (s *Set[T]) Reset() { *s = make(Set[T], len(*s)) }
-
 type prefixedWriter struct {
 	w io.Writer
 	p []byte
@@ -1032,86 +1019,3 @@ func AllCombinations[T any](slice []T, k int) func(yield func([]T) bool) bool {
 		return true
 	}
 }
-
-// AnyMap is a map with any key type. Internally, keys are converted to strings
-// using an opaque encoding. It is not possible to obtain the original key from
-// the map. As a result, you cannot iterate over the keys of an AnyMap.
-type AnyMap[K any, V any] struct {
-	m map[string]V
-}
-
-// NewAnyMap returns a new AnyMap.
-func NewAnyMap[K any, V any]() AnyMap[K, V] {
-	return AnyMap[K, V]{m: map[string]V{}}
-}
-
-// Get returns the value for the given key.
-func (m AnyMap[K, V]) Get(key K) (V, bool) {
-	v, ok := m.m[encodeMapKey(key)]
-	return v, ok
-}
-
-// GetDefault returns the value for the given key, or the given default value if
-// the key is not found.
-func (m AnyMap[K, V]) GetDefault(key K, defaultValue V) V {
-	v, ok := m.Get(key)
-	if ok {
-		return v
-	}
-	return defaultValue
-}
-
-// Getz returns the value for the given key or the zero-value if the key is not
-// found.
-func (m AnyMap[K, V]) Getz(key K) V {
-	v, _ := m.Get(key)
-	return v
-}
-
-// Has returns true if the given key exists in the map.
-func (m AnyMap[K, V]) Has(key K) bool {
-	_, ok := m.m[encodeMapKey(key)]
-	return ok
-}
-
-// Set sets the given key-value pair into the map.
-func (m AnyMap[K, V]) Set(key K, value V) {
-	m.m[encodeMapKey(key)] = value
-}
-
-// Delete deletes the given key from the map.
-func (m AnyMap[K, V]) Delete(key K) {
-	delete(m.m, encodeMapKey(key))
-}
-
-// Reset resets the map.
-func (m AnyMap[K, V]) Reset() {
-	for k := range m.m {
-		delete(m.m, k)
-	}
-}
-
-func encodeMapKey[K any](key K) string {
-	return fmt.Sprintf("%v", key)
-}
-
-// AnySet is similar to Set, except it's backed by an AnyMap which allows for
-// any key type to be used as the map key. It is API-compatible with Set.
-type AnySet[T any] AnyMap[T, struct{}]
-
-// NewAnySet returns a new AnySet.
-func NewAnySet[T any]() AnySet[T] {
-	return AnySet[T](NewAnyMap[T, struct{}]())
-}
-
-// Add adds the given value to the set.
-func (s AnySet[T]) Add(v T) { (AnyMap[T, struct{}])(s).Set(v, struct{}{}) }
-
-// Delete deletes the given value from the set.
-func (s AnySet[T]) Delete(v T) { (AnyMap[T, struct{}])(s).Delete(v) }
-
-// Has returns true if the set contains the given value.
-func (s AnySet[T]) Has(v T) bool { return (AnyMap[T, struct{}])(s).Has(v) }
-
-// Reset resets the set.
-func (s AnySet[T]) Reset() { (AnyMap[T, struct{}])(s).Reset() }

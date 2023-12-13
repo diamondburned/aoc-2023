@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"testing"
+
+	"github.com/diamondburned/aoc-2022/aocutil"
 )
 
 func TestTotalValid(t *testing.T) {
@@ -34,5 +36,17 @@ func TestTotalValid(t *testing.T) {
 				fail = true
 			}
 		})
+	}
+}
+
+func BenchmarkTotalValid(b *testing.B) {
+	aocutil.SilenceLogging()
+
+	const awfulInput = `????????????????# 8,2,1,1`
+	input := parseInput(awfulInput)[0]
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		totalValid(input)
 	}
 }

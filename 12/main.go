@@ -63,8 +63,8 @@ func totalValid(springs SpringsRecord) int {
 	var countActual countFunc
 
 	type cacheKey struct {
-		remaining   SpringsConditions
-		damagedRuns []int
+		Remaining   SpringsConditions
+		DamagedRuns []int
 	}
 
 	cache := aocutil.NewAnyMap[cacheKey, int]()
@@ -89,7 +89,6 @@ func totalValid(springs SpringsRecord) int {
 			return count
 		}
 
-		damagedRuns = slices.Clone(damagedRuns)
 		count = countActual(springs, n, damagedRuns)
 		cache.Set(key, count)
 

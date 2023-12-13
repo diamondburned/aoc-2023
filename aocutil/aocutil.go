@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"testing"
 	"unsafe"
 
 	"golang.org/x/exp/constraints"
@@ -19,17 +20,64 @@ import (
 	_ "github.com/davecgh/go-spew/spew"
 	"github.com/mohae/deepcopy"
 	_ "gonum.org/v1/gonum"
+	"gonum.org/v1/gonum/stat/combin"
 )
 
 var silent = false
 
 func init() {
+	if testing.Testing() {
+		return
+	}
+
 	flag.BoolVar(&silent, "s", false, "suppress output")
 	flag.Parse()
 
 	if silent {
 		log.SetOutput(io.Discard)
 	}
+}
+
+// Iter copies x/exp/xiter.
+type Iter[T any] func(yield func(T) bool) bool
+
+// Iter2 copies x/exp/xiter.
+type Iter2[T1, T2 any] func(yield func(T1, T2) bool) bool
+
+// Once returns the first item from the iterator, or false if none.
+func Once[T any](iter Iter[T]) (T, bool) {
+	var va T
+	var ok bool
+	iter(func(v T) bool {
+		va = v
+		ok = true
+		return false
+	})
+	return va, ok
+}
+
+// Once2 returns the first item from the iterator, or false if none.
+func Once2[T1, T2 any](iter Iter2[T1, T2]) (T1, T2, bool) {
+	var va1 T1
+	var va2 T2
+	var ok bool
+	iter(func(v1 T1, v2 T2) bool {
+		va1 = v1
+		va2 = v2
+		ok = true
+		return false
+	})
+	return va1, va2, ok
+}
+
+// All returns all items from the iterator.
+func All[T any](iter Iter[T]) []T {
+	var vs []T
+	iter(func(v T) bool {
+		vs = append(vs, v)
+		return true
+	})
+	return vs
 }
 
 // Run runs the given functions with the stdin input.
@@ -84,7 +132,9 @@ func SplitBlocks(s string) []string {
 // SplitLines splits a string into lines after trimming trailing new lines.
 func SplitLines(s string) []string {
 	s = strings.Trim(s, "\n")
-	return strings.Split(s, "\n")
+	ss := strings.Split(s, "\n")
+	ss = FilterEmptyStrings(ss)
+	return ss
 }
 
 // SplitLineFields splits a string into lines and then fields.
@@ -101,7 +151,7 @@ func SplitLineFields(s string) [][]string {
 func FilterEmptyStrings(strs []string) []string {
 	strs2 := strs[:0]
 	for _, s := range strs {
-		if s != "" {
+		if strings.TrimSpace(s) != "" {
 			strs2 = append(strs2, s)
 		}
 	}
@@ -123,7 +173,7 @@ func Atoi[T constraints.Signed](a string) T {
 
 // Atois converts a slice of strings to a slice of ints, panicking if it fails.
 func Atois[T constraints.Signed](a []string) []T {
-	return Transform(a, Atoi[T])
+	return Map(a, Atoi[T])
 }
 
 // Atou converts a string to an uint, panicking if it fails.
@@ -135,7 +185,7 @@ func Atou[T constraints.Unsigned](a string) uint {
 
 // Atous converts a slice of strings to a slice of uints, panicking if it fails.
 func Atous[T constraints.Unsigned](a []string) []uint {
-	return Transform(a, Atou[T])
+	return Map(a, Atou[T])
 }
 
 // Atof converts a string to a float, panicking if it fails.
@@ -146,7 +196,7 @@ func Atof[T constraints.Float](a string) T {
 // Atofs converts a slice of strings to a slice of floats, panicking if it
 // fails.
 func Atofs[T constraints.Float](a []string) []T {
-	return Transform(a, Atof[T])
+	return Map(a, Atof[T])
 }
 
 // Trim removes the value v from the beginning and end of the slice.
@@ -298,17 +348,8 @@ func Contains[T comparable](slice []T, v T) bool {
 	return Index(slice, v) != -1
 }
 
-// Map is like Transform, except the type is the same and replacing is done
-// in-place.
-func Map[T any](a []T, f func(T) T) {
-	for i, s := range a {
-		a[i] = f(s)
-	}
-}
-
-// Transform transforms a slice of strings into another slice of strings.
-// It is also known as Map.
-func Transform[T1 any, T2 any](a []T1, f func(T1) T2) []T2 {
+// Map transforms a slice of strings into another slice of strings.
+func Map[T1 any, T2 any](a []T1, f func(T1) T2) []T2 {
 	v := make([]T2, len(a))
 	for i, s := range a {
 		v[i] = f(s)
@@ -949,4 +990,32 @@ func LCM(integers ...int) int {
 	}
 
 	return result
+}
+
+// Combinations returns all combinations of k elements from the given slice.
+func Combinations[T any](slice []T, k int) [][]T {
+	combinations := combin.Combinations(len(slice), k)
+	return Map(combinations, func(is []int) []T {
+		return Map(is, func(i int) T { return slice[i] })
+	})
+}
+
+// AllCombinations returns an iterator that iterates over all combinations of k
+// elements from the given slice.
+func AllCombinations[T any](slice []T, k int) func(yield func([]T) bool) bool {
+	gen := combin.NewCombinationGenerator(len(slice), k)
+	dst := make([]int, k)
+	buf := make([]T, k)
+	return func(yield func([]T) bool) bool {
+		for gen.Next() {
+			combinations := gen.Combination(dst)
+			for i, j := range combinations {
+				buf[i] = slice[j]
+			}
+			if !yield(buf[:len(combinations)]) {
+				return false
+			}
+		}
+		return true
+	}
 }

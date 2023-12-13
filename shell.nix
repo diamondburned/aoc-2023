@@ -13,4 +13,6 @@ in pkgs.mkShell {
 		gopls
 		gotools
 	];
+
+	GOEXPERIMENT = "loopvar";
 }

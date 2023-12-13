@@ -75,10 +75,11 @@ func (s Schematic) SearchNumber(pt image.Point) (digits int, r image.Rectangle) 
 	return n, image.Rect(pt.X, pt.Y, pt.X+end, pt.Y+1)
 }
 
-// EachAdjacent calls match for each adjacent cell to the given rectangle
+// AllAdjacent calls match for each adjacent cell to the given rectangle
 // defined by p1 and p2. The match function is called with the byte at the
 // position, and if it returns true, the position is returned.
-func (s Schematic) EachAdjacent(rect image.Rectangle, match func(pt image.Point, b byte) bool) {
+func (s Schematic) AllAdjacent(rect image.Rectangle) aocutil.Iter2[image.Point, byte] {
+	// , match func(pt image.Point, b byte) bool) {
 	rect = rect.Canon()
 	rect = rect.Intersect(s.Bounds())
 
@@ -86,11 +87,13 @@ func (s Schematic) EachAdjacent(rect image.Rectangle, match func(pt image.Point,
 	border = image.Rect(border.Min.X-1, border.Min.Y-1, border.Max.X+1, border.Max.Y+1)
 	border = border.Intersect(s.Bounds())
 
-	for y := border.Min.Y; y < border.Max.Y; y++ {
-		for x := border.Min.X; x < border.Max.X; x++ {
-			pt := image.Pt(x, y)
-			if !pt.In(rect) && match(pt, s.At(pt)) {
-				return
+	return func(yield func(image.Point, byte) bool) {
+		for y := border.Min.Y; y < border.Max.Y; y++ {
+			for x := border.Min.X; x < border.Max.X; x++ {
+				pt := image.Pt(x, y)
+				if !pt.In(rect) && !yield(pt, s.At(pt)) {
+					return
+				}
 			}
 		}
 	}
@@ -110,10 +113,12 @@ func part1(input string) int {
 			}
 
 			var nearSymbol bool
-			schematic.EachAdjacent(rect, func(pt image.Point, b byte) bool {
+			for _, b := range schematic.AllAdjacent(rect) {
 				nearSymbol = isSymbol(b)
-				return nearSymbol
-			})
+				if nearSymbol {
+					break
+				}
+			}
 
 			if nearSymbol {
 				sum += n
@@ -141,12 +146,11 @@ func part2(input string) int {
 				continue
 			}
 
-			schematic.EachAdjacent(rect, func(pt image.Point, b byte) bool {
+			for pt, b := range schematic.AllAdjacent(rect) {
 				if b == Gear {
 					gears[pt] = append(gears[pt], n)
 				}
-				return false
-			})
+			}
 
 			x = rect.Max.X - 1
 		}

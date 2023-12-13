@@ -69,58 +69,6 @@ func (m Map) Set(p image.Point, b byte) {
 	m.Data[p.Y][p.X] = b
 }
 
-// AtY returns an iterator that iterates over the bytes at the given Y
-// coordinate.
-func (m Map) AtY(y int) aocutil.Iter[byte] {
-	if !image.Pt(0, y).In(m.Bounds) {
-		return func(yield func(byte) bool) bool {
-			return true
-		}
-	}
-
-	return func(yield func(byte) bool) bool {
-		for x := 0; x < m.Bounds.Max.X; x++ {
-			b := m.Data[y][x]
-			if !yield(b) {
-				return false
-			}
-		}
-		return true
-	}
-}
-
-// AtX returns an iterator that iterates over the bytes at the given X
-// coordinate.
-func (m Map) AtX(x int) aocutil.Iter[byte] {
-	if !image.Pt(x, 0).In(m.Bounds) {
-		return func(yield func(byte) bool) bool {
-			return true
-		}
-	}
-
-	return func(yield func(byte) bool) bool {
-		for y := 0; y < m.Bounds.Max.Y; y++ {
-			b := m.Data[y][x]
-			if !yield(b) {
-				return false
-			}
-		}
-		return true
-	}
-}
-
-func (m Map) atXFunc(y int) func(x int) byte {
-	return func(x int) byte {
-		return m.At(image.Pt(x, y))
-	}
-}
-
-func (m Map) atYFunc(x int) func(y int) byte {
-	return func(y int) byte {
-		return m.At(image.Pt(x, y))
-	}
-}
-
 // Clone makes a copy of the map.
 func (m Map) Clone() Map {
 	var n Map
@@ -145,7 +93,7 @@ func (m Map) String() string {
 // where the map is mirrored on both sides. If the line is horizontal, then {0,
 // Y} is returned. If the line is vertical, then {X, 0} is returned.
 func findReflections(m Map) aocutil.Iter[image.Point] {
-	return func(yield func(pt image.Point) bool) bool {
+	return func(yield func(pt image.Point) bool) {
 		// Search vertically first. Our strategy is to compare the first line and
 		// see if any part of it is mirrored on the other side.
 	mirrorX:
@@ -157,7 +105,7 @@ func findReflections(m Map) aocutil.Iter[image.Point] {
 				}
 			}
 			if !yield(image.Pt(x, 0)) {
-				return false
+				return
 			}
 		}
 
@@ -169,11 +117,9 @@ func findReflections(m Map) aocutil.Iter[image.Point] {
 				}
 			}
 			if !yield(image.Pt(0, y)) {
-				return false
+				return
 			}
 		}
-
-		return true
 	}
 }
 
@@ -299,7 +245,7 @@ func findNewReflection(m Map) (UnsmudgedReflection, bool) {
 			// Flip the block and find a new reflection.
 			m.Set(pt, flipBlock(old))
 
-			for _, newReflectPt := range aocutil.All(findReflections(m)) {
+			for newReflectPt := range findReflections(m) {
 				switch newReflectPt {
 				case (image.Point{}), reflectPt:
 					continue

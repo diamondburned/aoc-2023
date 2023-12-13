@@ -38,13 +38,18 @@ func (s Sequence) AllZeroes() bool {
 // the elements of the sequence. The returned list contains s itself, followed
 // by the differences between each element in the sequence, followed by the
 // differences between each element in the previous sequence, and so on.
-func (s Sequence) AllDifferences() []Sequence {
-	diffs := []Sequence{s}
-	for !s.AllZeroes() {
-		s = s.Differences()
-		diffs = append(diffs, s)
+func (s Sequence) AllDifferences() aocutil.Iter[Sequence] {
+	return func(yield func(Sequence) bool) {
+		if !yield(s) {
+			return
+		}
+		for !s.AllZeroes() {
+			s = s.Differences()
+			if !yield(s) {
+				return
+			}
+		}
 	}
-	return diffs
 }
 
 func parseInput(input string) []Sequence {
@@ -108,7 +113,7 @@ func part1(stdin string) int {
 
 	var sum int
 	for _, sequence := range sequences {
-		diffs := sequence.AllDifferences()
+		diffs := aocutil.All(sequence.AllDifferences())
 		extra := extrapolateSequence(diffs, false, true)
 		sum += extra[0][len(extra[0])-1]
 	}
@@ -121,7 +126,7 @@ func part2(stdin string) int {
 
 	var sum int
 	for _, sequence := range sequences {
-		diffs := sequence.AllDifferences()
+		diffs := aocutil.All(sequence.AllDifferences())
 		extra := extrapolateSequence(diffs, true, false)
 		sum += extra[0][0]
 	}

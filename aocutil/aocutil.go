@@ -49,44 +49,36 @@ func SilenceLogging() {
 }
 
 // Iter copies x/exp/xiter.
-type Iter[T any] func(yield func(T) bool) bool
+type Iter[T any] func(yield func(T) bool)
 
 // Iter2 copies x/exp/xiter.
-type Iter2[T1, T2 any] func(yield func(T1, T2) bool) bool
+type Iter2[T1, T2 any] func(yield func(T1, T2) bool)
 
 // Once returns the first item from the iterator, or false if none.
 func Once[T any](iter Iter[T]) (T, bool) {
-	var va T
-	var ok bool
-	iter(func(v T) bool {
-		va = v
-		ok = true
-		return false
-	})
-	return va, ok
+	for v := range iter {
+		return v, true
+	}
+	var v T
+	return v, false
 }
 
 // Once2 returns the first item from the iterator, or false if none.
 func Once2[T1, T2 any](iter Iter2[T1, T2]) (T1, T2, bool) {
+	for v1, v2 := range iter {
+		return v1, v2, true
+	}
 	var va1 T1
 	var va2 T2
-	var ok bool
-	iter(func(v1 T1, v2 T2) bool {
-		va1 = v1
-		va2 = v2
-		ok = true
-		return false
-	})
-	return va1, va2, ok
+	return va1, va2, false
 }
 
 // All returns all items from the iterator.
 func All[T any](iter Iter[T]) []T {
 	var vs []T
-	iter(func(v T) bool {
+	for v := range iter {
 		vs = append(vs, v)
-		return true
-	})
+	}
 	return vs
 }
 
@@ -993,29 +985,19 @@ func LCM(integers ...int) int {
 }
 
 // Combinations returns all combinations of k elements from the given slice.
-func Combinations[T any](slice []T, k int) [][]T {
-	combinations := combin.Combinations(len(slice), k)
-	return Map(combinations, func(is []int) []T {
-		return Map(is, func(i int) T { return slice[i] })
-	})
-}
-
-// AllCombinations returns an iterator that iterates over all combinations of k
-// elements from the given slice.
-func AllCombinations[T any](slice []T, k int) func(yield func([]T) bool) bool {
+func Combinations[T any](slice []T, k int) Iter[[]T] {
 	gen := combin.NewCombinationGenerator(len(slice), k)
 	dst := make([]int, k)
 	buf := make([]T, k)
-	return func(yield func([]T) bool) bool {
+	return func(yield func([]T) bool) {
 		for gen.Next() {
 			combinations := gen.Combination(dst)
 			for i, j := range combinations {
 				buf[i] = slice[j]
 			}
 			if !yield(buf[:len(combinations)]) {
-				return false
+				return
 			}
 		}
-		return true
 	}
 }

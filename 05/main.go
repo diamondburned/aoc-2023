@@ -226,7 +226,7 @@ func part1(input string) int {
 func part2(input string) int {
 	almanac := parseAlmanac(input, 2)
 
-	currentRanges := aocutil.Transform(
+	currentRanges := aocutil.Map(
 		almanac.Seeds,
 		func(seed [2]int) Range { return Range{seed[0], seed[1] - seed[0]} },
 	)
@@ -240,7 +240,7 @@ func part2(input string) int {
 		currentRanges = nextRanges
 	}
 
-	return aocutil.Mins(aocutil.Transform(
+	return aocutil.Mins(aocutil.Map(
 		currentRanges,
 		func(r Range) int { return r.Start })...)
 }

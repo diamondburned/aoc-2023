@@ -7,7 +7,6 @@ import (
 
 	"github.com/diamondburned/aoc-2022/aocutil"
 	"golang.org/x/exp/constraints"
-	"gonum.org/v1/gonum/stat/combin"
 )
 
 func main() {
@@ -134,9 +133,8 @@ func (i GalaxyImage) String() string {
 func sumGalaxyDistances(img GalaxyImage) int {
 	galaxies := mapKeys(img)
 	var sum int
-	for _, combination := range combin.Combinations(len(galaxies), 2) {
-		a, b := galaxies[combination[0]], galaxies[combination[1]]
-		dist := manhattanDistance(a, b)
+	for pair := range aocutil.Combinations(galaxies, 2) {
+		dist := manhattanDistance(pair[0], pair[1])
 		sum += dist
 	}
 	return sum

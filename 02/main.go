@@ -97,11 +97,11 @@ func part2(input string) {
 	var powerSum int
 	for _, game := range games {
 		maxBlue := aocutil.Maxs(
-			aocutil.Transform(game.Pulls, func(p Pull) int { return p.Blue })...)
+			aocutil.Map(game.Pulls, func(p Pull) int { return p.Blue })...)
 		maxRed := aocutil.Maxs(
-			aocutil.Transform(game.Pulls, func(p Pull) int { return p.Red })...)
+			aocutil.Map(game.Pulls, func(p Pull) int { return p.Red })...)
 		maxGreen := aocutil.Maxs(
-			aocutil.Transform(game.Pulls, func(p Pull) int { return p.Green })...)
+			aocutil.Map(game.Pulls, func(p Pull) int { return p.Green })...)
 		power := maxBlue * maxRed * maxGreen
 		powerSum += power
 	}

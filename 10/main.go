@@ -117,7 +117,13 @@ func (m Map) AdjacentDeltas(pt image.Point) []image.Point {
 	}
 }
 
-func (m Map) TraverseFrom(start image.Point, f func(pt image.Point, dist int) bool) bool {
+// PointDistance is a point with a distance from some origin.
+type PointDistance struct {
+	image.Point
+	Distance int
+}
+
+func (m Map) Traverse(start image.Point) aocutil.Iter[PointDistance] {
 	m = m.Copy()
 
 	type traversedPt struct {
@@ -125,37 +131,36 @@ func (m Map) TraverseFrom(start image.Point, f func(pt image.Point, dist int) bo
 		dist int
 	}
 
-	queue := []traversedPt{{start, 0}}
+	return func(yield func(PointDistance) bool) {
+		queue := []traversedPt{{start, 0}}
 
-	for len(queue) > 0 {
-		item := queue[0]
-		queue = queue[1:]
+		for len(queue) > 0 {
+			item := queue[0]
+			queue = queue[1:]
 
-		if !m.PtIn(item.pt) {
-			continue
+			if !m.PtIn(item.pt) {
+				continue
+			}
+
+			if !yield(PointDistance{item.pt, item.dist}) {
+				return
+			}
+
+			for _, nextDelta := range m.AdjacentDeltas(item.pt) {
+				nextPt := item.pt.Add(nextDelta)
+				queue = append(queue, traversedPt{nextPt, item.dist + 1})
+			}
+
+			m[item.pt.Y][item.pt.X] = Ground
 		}
-
-		if !f(item.pt, item.dist) {
-			return false
-		}
-
-		for _, nextDelta := range m.AdjacentDeltas(item.pt) {
-			nextPt := item.pt.Add(nextDelta)
-			queue = append(queue, traversedPt{nextPt, item.dist + 1})
-		}
-
-		m[item.pt.Y][item.pt.X] = Ground
 	}
-
-	return true
 }
 
 func (m Map) TraverseMaxDist(start image.Point) int {
 	var maxDist int
-	m.TraverseFrom(start, func(pt image.Point, dist int) bool {
-		maxDist = max(maxDist, dist)
-		return true
-	})
+	for pt := range m.Traverse(start) {
+		maxDist = max(maxDist, pt.Distance)
+	}
 	return maxDist
 }
 

@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/alecthomas/assert/v2 v2.4.1
 	github.com/fxamacker/cbor/v2 v2.5.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/sourcegraph/conc v0.3.0
@@ -17,6 +18,8 @@ require (
 )
 
 require (
+	github.com/alecthomas/repr v0.3.0 // indirect
+	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect

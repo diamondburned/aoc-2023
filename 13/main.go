@@ -208,7 +208,7 @@ func part1(input string) int {
 	maps := parseInput(input)
 	var summary int
 	for _, m := range maps {
-		reflectPt, ok := aocutil.Once(findReflections(m))
+		reflectPt, ok := aocutil.One(findReflections(m))
 		if !ok {
 			panic("no reflection found")
 		}
@@ -229,7 +229,7 @@ func findNewReflection(m Map) (UnsmudgedReflection, bool) {
 	log.Print("\n", m)
 	midpoint := image.Pt(m.Bounds.Max.X/2, m.Bounds.Max.Y/2)
 
-	reflectPt, ok := aocutil.Once(findReflections(m))
+	reflectPt, ok := aocutil.One(findReflections(m))
 	if !ok {
 		return UnsmudgedReflection{}, false
 	}

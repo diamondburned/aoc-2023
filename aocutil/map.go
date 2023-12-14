@@ -1,6 +1,7 @@
 package aocutil
 
 import (
+	"bytes"
 	"image"
 	"slices"
 	"strings"
@@ -15,10 +16,16 @@ type Map2D struct {
 // NewMap2D creates a new Map2D from the given input.
 func NewMap2D(input string) Map2D {
 	lines := SplitLines(input)
-	m := Map2D{Data: make([][]byte, len(lines))}
+	data := make([][]byte, len(lines))
 	for i, line := range lines {
-		m.Data[i] = []byte(line)
+		data[i] = []byte(line)
 	}
+	return NewMap2DFromData(data)
+}
+
+// NewMap2DFromData creates a new Map2D from the given data.
+func NewMap2DFromData(data [][]byte) Map2D {
+	m := Map2D{Data: data}
 	m.Bounds = image.Rect(0, 0, len(m.Data[0]), len(m.Data))
 	return m
 }
@@ -57,6 +64,31 @@ func (m Map2D) String() string {
 		sb.WriteByte('\n')
 	}
 	return sb.String()
+}
+
+// Equal returns true if the maps are equal.
+func (m Map2D) Equal(other Map2D) bool {
+	if m.Bounds != other.Bounds {
+		return false
+	}
+	for i, line := range m.Data {
+		if !bytes.Equal(line, other.Data[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// Transpose returns a transposed copy of the map.
+func (m Map2D) Transpose() Map2D {
+	data := make([][]byte, len(m.Data[0]))
+	for i := range data {
+		data[i] = make([]byte, len(m.Data))
+		for j := range data[i] {
+			data[i][j] = m.Data[j][i]
+		}
+	}
+	return NewMap2DFromData(data)
 }
 
 // All returns an iterator that iterates over all points in the map.

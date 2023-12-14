@@ -28,6 +28,9 @@ import (
 var silent atomic.Bool
 
 func init() {
+	log.SetFlags(log.Ltime | log.Lmicroseconds | log.Lmsgprefix)
+	log.SetPrefix("⎸")
+
 	if !testing.Testing() {
 		silent_ := flag.Bool("s", false, "suppress output")
 		flag.Parse()

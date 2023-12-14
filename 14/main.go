@@ -2,9 +2,6 @@ package main
 
 import (
 	"image"
-	"log"
-	"slices"
-	"strings"
 
 	"github.com/diamondburned/aoc-2022/aocutil"
 )
@@ -19,61 +16,8 @@ const (
 	EmptySpace  = '.'
 )
 
-type Map struct {
-	Data   [][]byte
-	Bounds image.Rectangle
-}
-
-func parseInput(input string) Map {
-	var m Map
-	lines := aocutil.SplitLines(input)
-	lines = aocutil.FilterEmptyStrings(lines)
-	m.Data = make([][]byte, len(lines))
-	for i, line := range lines {
-		m.Data[i] = []byte(line)
-	}
-	m.Bounds = image.Rect(0, 0, len(m.Data[0]), len(m.Data))
-	return m
-}
-
-// At returns the byte at the given point. If the point is out of bounds, then
-// 0 is returned.
-func (m Map) At(p image.Point) byte {
-	if !p.In(m.Bounds) {
-		return 0
-	}
-	return m.Data[p.Y][p.X]
-}
-
-// Set sets the byte at the given point.
-func (m Map) Set(p image.Point, b byte) {
-	m.Data[p.Y][p.X] = b
-}
-
-// Clone makes a copy of the map.
-func (m Map) Clone() Map {
-	var n Map
-	n.Data = make([][]byte, len(m.Data))
-	for i, line := range m.Data {
-		n.Data[i] = slices.Clone(line)
-	}
-	n.Bounds = m.Bounds
-	return n
-}
-
-func (m Map) String() string {
-	var sb strings.Builder
-	sb.Grow(len(m.Data) * (len(m.Data[0]) + 1))
-	for _, line := range m.Data {
-		sb.Write(line)
-		sb.WriteByte('\n')
-	}
-	return sb.String()
-}
-
-// Load returns the amount of load caused by ar ock.
-func (m Map) Load(pt image.Point) int {
-	return m.Bounds.Dy() - pt.Y
+func parseInput(input string) aocutil.Map2D {
+	return aocutil.NewMap2D(input)
 }
 
 type Direction = image.Point
@@ -87,69 +31,59 @@ var (
 
 // canSlide returns true and the point where the rock will slide to if the
 // rock at the given point can slide in the given direction.
-func canSlide(m Map, pt image.Point, d Direction) (image.Point, bool) {
+func canSlide(m aocutil.Map2D, pt image.Point, d Direction) (image.Point, bool) {
 	dst := pt.Add(d)
-	for {
-		if !dst.In(m.Bounds) || m.At(dst) != EmptySpace {
-			dst = dst.Sub(d)
-			break
-		}
+	for dst.In(m.Bounds) && m.At(dst) == EmptySpace {
 		dst = dst.Add(d)
 	}
-
-	aocutil.Assertf(
-		dst == pt || m.At(dst) == EmptySpace,
-		"rock at %v cannot slide over non-empty space at %v", pt, dst,
-	)
-
+	dst = dst.Sub(d)
 	return dst, dst != pt
 }
 
-func tiltMap(m Map, direction Direction) {
-	var delta image.Point
-	var start, end image.Point // [start, end)
+func tiltMap(m aocutil.Map2D, direction Direction) {
+	var d image.Point
+	var r image.Rectangle
 
 	switch direction {
 	case North, West:
 		// Scan from the top-left corner.
-		delta = image.Pt(1, 1)
-		start = m.Bounds.Min
-		end = m.Bounds.Max
+		d = image.Pt(1, 1)
+		r = m.Bounds
 	case South, East:
 		// Scan from the bottom-right corner.
-		delta = image.Pt(-1, -1)
-		start = m.Bounds.Max.Sub(image.Pt(1, 1))
-		end = m.Bounds.Min.Sub(image.Pt(1, 1))
+		d = image.Pt(-1, -1)
+		r = image.Rectangle{
+			Min: m.Bounds.Max.Sub(image.Pt(1, 1)),
+			Max: m.Bounds.Min.Sub(image.Pt(1, 1)),
+		}
 	}
 
-	for y := start.Y; y != end.Y; y += delta.Y {
-		for x := start.X; x != end.X; x += delta.X {
-			pt := image.Pt(x, y)
-			at := m.At(pt)
-			if at != RoundedRock {
-				continue
-			}
-
-			dst, canSlide := canSlide(m, pt, direction)
-			if !canSlide {
-				continue
-			}
-
-			m.Set(image.Pt(x, y), EmptySpace)
-			m.Set(dst, RoundedRock)
+	for pt := range aocutil.PointsIterateDelta(r, d) {
+		at := m.At(pt)
+		if at != RoundedRock {
+			continue
 		}
+
+		dst, canSlide := canSlide(m, pt, direction)
+		if !canSlide {
+			continue
+		}
+
+		m.Set(pt, EmptySpace)
+		m.Set(dst, RoundedRock)
 	}
 }
 
-func calculateTotalLoad(m Map) int {
+// Load returns the amount of load caused by ar ock.
+func rockLoad(m aocutil.Map2D, pt image.Point) int {
+	return m.Bounds.Dy() - pt.Y
+}
+
+func calculateTotalLoad(m aocutil.Map2D) int {
 	var total int
-	for y := m.Bounds.Min.Y; y < m.Bounds.Max.Y; y++ {
-		for x := m.Bounds.Min.X; x < m.Bounds.Max.X; x++ {
-			pt := image.Pt(x, y)
-			if m.At(pt) != RoundedRock {
-				continue
-			}
-			total += m.Load(pt)
+	for p, at := range m.All() {
+		if at == RoundedRock {
+			total += rockLoad(m, p)
 		}
 	}
 	return total
@@ -163,28 +97,26 @@ func part1(input string) int {
 
 func part2(input string) int {
 	m := parseInput(input)
-	reps := make(map[string]int)
 
 	type cachedMap struct {
-		Map
+		// Map is the output of the tilts.
+		Map aocutil.Map2D
 		// Seen is a list of cycles where this map was seen.
 		// A maximum of 2 cycles are stored.
 		Seen []int
 	}
 
-	// cache stores the input Map and the outcome of all 4 tilts.
+	// cache stores the input aocutil.Map2D and the outcome of all 4 tilts.
 	cache := make(map[string]cachedMap)
 
 	const repeat = 1_000_000_000
 	for i := 0; i < repeat; i++ {
-		log.Printf("cycle %d", i)
-		mstr := m.String()
-
 		tiltMap(m, North)
 		tiltMap(m, West)
 		tiltMap(m, South)
 		tiltMap(m, East)
-		log.Print("cycle ", i, ":\n", m)
+
+		mstr := m.String()
 
 		cached, ok := cache[mstr]
 		if !ok {
@@ -195,30 +127,19 @@ func part2(input string) int {
 
 		// We've seen this map before. Try to track how many cycles it
 		// takes to repeat.
-		if len(cached.Seen) < 5 {
+		if len(cached.Seen) < 2 {
 			cached.Seen = append(cached.Seen, i)
 			cache[mstr] = cached
 			continue
 		}
 
 		m = cached.Map
-		log.Print("cycle ", i, " (cached):\n", m)
 
 		// We've seen this sequence twice. Jump ahead to the next time it
 		// repeats.
-		seen := cached.Seen
-		period := seen[1] - seen[0]
+		period := cached.Seen[1] - cached.Seen[0]
 		jump := (repeat - i) / period
-		log.Printf("%v: jumping ahead %d cycles", seen, jump*period)
 		i += jump * period
-	}
-
-	var cycles []Map
-	for mstr, rep := range reps {
-		if rep == 100 {
-			cycles = append(cycles, parseInput(mstr))
-			log.Print("map:\n", mstr)
-		}
 	}
 
 	return calculateTotalLoad(m)

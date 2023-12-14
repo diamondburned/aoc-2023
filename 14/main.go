@@ -29,15 +29,15 @@ var (
 	West  = image.Pt(-1, 0)
 )
 
-// canSlide returns true and the point where the rock will slide to if the
-// rock at the given point can slide in the given direction.
-func canSlide(m aocutil.Map2D, pt image.Point, d Direction) (image.Point, bool) {
+// slideRock returns the destination of the rock so that it slides in the
+// direction d. If the rock cannot slide, then the destination is the same as
+// the source.
+func slideRock(m aocutil.Map2D, pt image.Point, d Direction) image.Point {
 	dst := pt.Add(d)
 	for dst.In(m.Bounds) && m.At(dst) == EmptySpace {
 		dst = dst.Add(d)
 	}
-	dst = dst.Sub(d)
-	return dst, dst != pt
+	return dst.Sub(d)
 }
 
 func tiltMap(m aocutil.Map2D, direction Direction) {
@@ -60,21 +60,14 @@ func tiltMap(m aocutil.Map2D, direction Direction) {
 
 	for pt := range aocutil.PointsIterateDelta(r, d) {
 		at := m.At(pt)
-		if at != RoundedRock {
-			continue
+		if at == RoundedRock {
+			dst := slideRock(m, pt, direction)
+			m.Set(pt, EmptySpace)
+			m.Set(dst, RoundedRock)
 		}
-
-		dst, canSlide := canSlide(m, pt, direction)
-		if !canSlide {
-			continue
-		}
-
-		m.Set(pt, EmptySpace)
-		m.Set(dst, RoundedRock)
 	}
 }
 
-// Load returns the amount of load caused by ar ock.
 func rockLoad(m aocutil.Map2D, pt image.Point) int {
 	return m.Bounds.Dy() - pt.Y
 }
@@ -120,26 +113,17 @@ func part2(input string) int {
 
 		cached, ok := cache[mstr]
 		if !ok {
-			cached = cachedMap{Map: m.Clone(), Seen: []int{i}}
-			cache[mstr] = cached
-			continue
+			cached = cachedMap{Map: m.Clone()}
 		}
 
-		// We've seen this map before. Try to track how many cycles it
-		// takes to repeat.
 		if len(cached.Seen) < 2 {
 			cached.Seen = append(cached.Seen, i)
-			cache[mstr] = cached
-			continue
+		} else {
+			period := cached.Seen[1] - cached.Seen[0]
+			i += (repeat - i) / period * period
 		}
 
-		m = cached.Map
-
-		// We've seen this sequence twice. Jump ahead to the next time it
-		// repeats.
-		period := cached.Seen[1] - cached.Seen[0]
-		jump := (repeat - i) / period
-		i += jump * period
+		cache[mstr] = cached
 	}
 
 	return calculateTotalLoad(m)

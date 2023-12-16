@@ -7,6 +7,17 @@ import (
 	"strings"
 )
 
+var (
+	// VecUp is a vector pointing up.
+	VecUp = image.Pt(0, -1)
+	// VecDown is a vector pointing down.
+	VecDown = image.Pt(0, +1)
+	// VecLeft is a vector pointing left.
+	VecLeft = image.Pt(-1, 0)
+	// VecRight is a vector pointing right.
+	VecRight = image.Pt(+1, 0)
+)
+
 // Map2D is a 2D map of bytes.
 type Map2D struct {
 	Data   [][]byte

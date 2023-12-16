@@ -16,7 +16,7 @@ let
 			src = pkgs.fetchgit {
 				url = "https://go.googlesource.com/go";
 				rev = version;
-				hash = "sha256-i8TDuRtx0A2U93A1Ga5qOK6SZk/3cdsWL60rEUZUxsQ=";
+				hash = "sha256-7UmPaQKWYiilLoSpkgsMUjCnQVzF+IHe6zzEUwjsugs=";
 				leaveDotGit = true;
 			};
 		

@@ -29,7 +29,7 @@ var silent atomic.Bool
 
 func init() {
 	log.SetFlags(log.Ltime | log.Lmicroseconds | log.Lmsgprefix)
-	log.SetPrefix("⎸")
+	log.SetPrefix("⎸ ")
 
 	if !testing.Testing() {
 		silent_ := flag.Bool("s", false, "suppress output")
@@ -40,6 +40,19 @@ func init() {
 	if silent.Load() {
 		SilenceLogging()
 	}
+}
+
+// ScopeLogf enters a log scope.
+func ScopeLogf(f string, v ...any) (unscope func()) {
+	old := log.Prefix()
+	new := old
+	if f != "" {
+		new += fmt.Sprintf(f, v...) + ": "
+	} else {
+		new += "."
+	}
+	log.SetPrefix(new)
+	return func() { log.SetPrefix(old) }
 }
 
 // IsSilent returns true if the -s flag is given.

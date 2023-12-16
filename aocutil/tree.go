@@ -23,6 +23,31 @@ func DFS[T any](root T, children func(T) []T) Iter[T] {
 	}
 }
 
+// AcyclicDFS is a depth-first search iterator that only visits each node once.
+func AcyclicDFS[T comparable](root T, children func(T) []T) Iter[T] {
+	return func(yield func(T) bool) {
+		seen := NewSet[T](0)
+		stack := []T{root}
+		for len(stack) > 0 {
+			node := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+
+			if seen.Has(node) {
+				continue
+			}
+			seen.Add(node)
+
+			if !yield(node) {
+				break
+			}
+
+			for _, child := range children(node) {
+				stack = append(stack, child)
+			}
+		}
+	}
+}
+
 // BFS is a breadth-first search iterator. It takes a root node and a function
 // that returns the children of a node. It returns an iterator that yields
 // nodes in breadth-first order.
@@ -37,6 +62,37 @@ func BFS[T any](root T, children func(T) []T) Iter[T] {
 			// Prevent memory leaks.
 			queue[0] = z
 			queue = slices.Delete(queue, 0, 1)
+
+			if !yield(node) {
+				break
+			}
+
+			for _, child := range children(node) {
+				queue = append(queue, child)
+			}
+		}
+	}
+}
+
+// AcyclicBFS is a breadth-first search iterator that only visits each node
+// once.
+func AcyclicBFS[T comparable](root T, children func(T) []T) Iter[T] {
+	return func(yield func(T) bool) {
+		var z T
+
+		seen := NewSet[T](0)
+		queue := []T{root}
+		for len(queue) > 0 {
+			node := queue[0]
+
+			// Prevent memory leaks.
+			queue[0] = z
+			queue = slices.Delete(queue, 0, 1)
+
+			if seen.Has(node) {
+				continue
+			}
+			seen.Add(node)
 
 			if !yield(node) {
 				break

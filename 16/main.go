@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"image"
-	"log"
 
 	"github.com/diamondburned/aoc-2022/aocutil"
 )
@@ -20,14 +19,6 @@ const (
 	SplitHorizontal = '-'
 )
 
-type MirrorMap struct {
-	aocutil.Map2D
-}
-
-func parseInput(input string) MirrorMap {
-	return MirrorMap{aocutil.NewMap2D(input)}
-}
-
 type LightBeam struct {
 	Position  image.Point
 	Direction image.Point
@@ -39,14 +30,9 @@ func (b LightBeam) String() string {
 
 // NextBeam keeps the beam going one step forward. If the beam hits a mirror, it
 // will change direction. If the beam hits a
-func (b LightBeam) NextBeam(m MirrorMap) []LightBeam {
+func (b LightBeam) NextBeam(m aocutil.Map2D) []LightBeam {
 	nextPos := b.Position.Add(b.Direction)
-	next := m.At(nextPos)
-	if next == 0 {
-		return nil
-	}
-
-	switch next {
+	switch m.At(nextPos) {
 	case Up90Mirror:
 		switch b.Direction {
 		case aocutil.VecUp:
@@ -90,24 +76,22 @@ func (b LightBeam) NextBeam(m MirrorMap) []LightBeam {
 	case EmptySpace:
 		return []LightBeam{{nextPos, b.Direction}}
 	}
-	log.Panicf("invalid beam at %v shooting %v", b.Position, b.Direction)
 	return nil
 }
 
-func countEnergizedTiles(m MirrorMap, startingBeam LightBeam) int {
-	traversed := aocutil.NewSet[LightBeam](0)
+func countEnergizedTiles(m aocutil.Map2D, startingBeam LightBeam) int {
 	energized := aocutil.NewSet[image.Point](0)
-	aocutil.All(aocutil.BFS(startingBeam, func(b LightBeam) []LightBeam {
-		if traversed.Has(b) {
-			return nil
-		}
-		traversed.Add(b)
+	aocutil.All(aocutil.AcyclicBFS(startingBeam, func(b LightBeam) []LightBeam {
 		if b.Position.In(m.Bounds) {
 			energized.Add(b.Position)
 		}
 		return b.NextBeam(m)
 	}))
 	return len(energized)
+}
+
+func parseInput(input string) aocutil.Map2D {
+	return aocutil.NewMap2D(input)
 }
 
 func part1(input string) int {
@@ -123,10 +107,8 @@ func part2(input string) int {
 
 	var maxEnergized int
 	test := func(start LightBeam) {
-		// log.Printf("checking %v", start)
 		energized := countEnergizedTiles(m, start)
 		maxEnergized = max(maxEnergized, energized)
-		// log.Printf("beam %v has %d energized tiles", start, energized)
 	}
 
 	for y := 0; y < m.Bounds.Max.Y; y++ {

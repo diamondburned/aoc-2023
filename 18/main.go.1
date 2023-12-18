@@ -1,0 +1,175 @@
+package main
+
+import (
+	"image"
+	"image/color"
+	"image/png"
+	"log"
+	"os"
+	"strconv"
+	"strings"
+
+	"github.com/diamondburned/aoc-2022/aocutil"
+)
+
+func main() {
+	aocutil.Run(part1, part2)
+}
+
+type Map struct {
+	img    *image.RGBA
+	loop   []image.Point
+	origin image.Point
+}
+
+func parseColor(hex string) color.RGBA {
+	hex = hex[1:]
+	r, _ := strconv.ParseUint(hex[0:2], 16, 8)
+	g, _ := strconv.ParseUint(hex[2:4], 16, 8)
+	b, _ := strconv.ParseUint(hex[4:6], 16, 8)
+	return color.RGBA{uint8(r), uint8(g), uint8(b), 255}
+}
+
+func parseInput(input string) Map {
+	var pos image.Point
+	var loop []image.Point
+	ptMap := make(map[image.Point]color.RGBA)
+
+	for _, line := range aocutil.SplitLines(input) {
+		parts := strings.Fields(line)
+		units := aocutil.Atoi[int](parts[1])
+		color := parseColor(strings.Trim(parts[2], "()"))
+		var direction image.Point
+		switch parts[0] {
+		case "U":
+			direction = aocutil.VecUp
+		case "D":
+			direction = aocutil.VecDown
+		case "L":
+			direction = aocutil.VecLeft
+		case "R":
+			direction = aocutil.VecRight
+		}
+		for i := 0; i < units; i++ {
+			pos = pos.Add(direction)
+			ptMap[pos] = color
+			loop = append(loop, pos)
+		}
+	}
+
+	var rect image.Rectangle
+	for pt := range ptMap {
+		rect = rect.Union(image.Rectangle{pt, pt.Add(image.Pt(1, 1))})
+	}
+
+	offset := rect.Min
+	rect = rect.Sub(offset)
+
+	for i, pt := range loop {
+		loop[i] = pt.Sub(offset)
+	}
+
+	img := image.NewRGBA(rect)
+	for pt, color := range ptMap {
+		pt = pt.Sub(offset)
+		img.Set(pt.X, pt.Y, color)
+	}
+
+	return Map{
+		img:    img,
+		loop:   loop,
+		origin: image.Pt(0, 0).Sub(offset),
+	}
+}
+
+func (m Map) Area() int {
+	return m.interiorArea() + len(m.loop)
+}
+
+func pointIsInsideLoop(img *image.RGBA, pt, direction image.Point) bool {
+	if img.RGBAAt(pt.X, pt.Y).A == 255 {
+		// pt is on the loop, so it's not inside the loop.
+		return false
+	}
+	ray := pt.Add(direction)
+	var count int
+	var inLoop bool
+	for {
+		if !ray.In(img.Bounds()) {
+			break
+		}
+		if img.RGBAAt(ray.X, ray.Y).A == 255 {
+			if !inLoop {
+				count++
+			}
+			inLoop = true
+		} else {
+			inLoop = false
+		}
+		ray = ray.Add(direction)
+	}
+	return count%2 == 1
+}
+
+func floodFill(img *image.RGBA, pt image.Point, fill color.RGBA) int {
+	var count int
+	queue := []image.Point{pt}
+	for len(queue) > 0 {
+		pt := queue[0]
+		queue = queue[1:]
+
+		if !pt.In(img.Bounds()) || img.RGBAAt(pt.X, pt.Y) != (color.RGBA{}) {
+			continue
+		}
+
+		count++
+		img.Set(pt.X, pt.Y, fill)
+
+		queue = append(queue,
+			pt.Add(aocutil.VecUp),
+			pt.Add(aocutil.VecDown),
+			pt.Add(aocutil.VecLeft),
+			pt.Add(aocutil.VecRight),
+		)
+	}
+	return count
+}
+
+func (m Map) interiorArea() int {
+	interiorPt := image.Pt(-1, -1)
+interiorSearch:
+	for _, pt := range m.loop {
+		for _, dir := range []image.Point{aocutil.VecUp, aocutil.VecDown, aocutil.VecLeft, aocutil.VecRight} {
+			pt := pt.Add(dir)
+			if pointIsInsideLoop(m.img, pt, dir) {
+				interiorPt = pt
+				break interiorSearch
+			}
+		}
+	}
+	log.Printf("interior point: %v", interiorPt)
+	if !interiorPt.In(m.img.Bounds()) {
+		panic("no interior point found")
+	}
+	area := floodFill(m.img, interiorPt, color.RGBA{255, 255, 255, 100})
+	m.img.Set(interiorPt.X, interiorPt.Y, color.RGBA{255, 0, 0, 255})
+	return area
+}
+
+func part1(input string) int {
+	m := parseInput(input)
+	log.Printf("origin: %v", m.origin)
+	area := m.Area()
+	writePNG("input.png", m.img)
+	return area
+}
+
+func part2(input string) int {
+	return 0
+}
+
+func writePNG(name string, i image.Image) {
+	f := aocutil.E2(os.Create(name))
+	defer f.Close()
+	aocutil.E1(png.Encode(f, i))
+}

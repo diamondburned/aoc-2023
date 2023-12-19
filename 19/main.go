@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"strings"
 
@@ -44,31 +43,7 @@ func ParsePartCategory(s string) PartCategory {
 	}
 }
 
-func (c PartCategory) String() string {
-	switch c {
-	case CategoryX:
-		return "X"
-	case CategoryM:
-		return "M"
-	case CategoryA:
-		return "A"
-	case CategoryS:
-		return "S"
-	default:
-		log.Panicf("invalid part category: %d", c)
-		return ""
-	}
-}
-
 type Part [categoryMax]int
-
-func (p Part) String() string {
-	strs := make([]string, len(p))
-	for i, v := range p {
-		strs[i] = fmt.Sprintf("%s=%d", PartCategory(i), v)
-	}
-	return strings.Join(strs, ",")
-}
 
 type WorkflowStep struct {
 	Category   PartCategory
@@ -105,8 +80,7 @@ func (c Comparison) Compare(a, b int) bool {
 	case ComparisonGreaterThan:
 		return a > b
 	default:
-		log.Panicf("invalid comparison: %c", c)
-		return false
+		panic("invalid comparison")
 	}
 }
 
@@ -217,10 +191,6 @@ func (iv Interval) Count() int {
 	return iv.Max - iv.Min
 }
 
-func (iv Interval) In(v int) bool {
-	return v >= iv.Min && v < iv.Max
-}
-
 type PartIntervals [categoryMax]Interval
 
 // Count returns the number of possible combinations of parts.
@@ -232,117 +202,55 @@ func (p PartIntervals) Count() int {
 	return count
 }
 
-func (p PartIntervals) String() string {
-	strs := make([]string, len(p))
-	for i, iv := range p {
-		strs[i] = fmt.Sprintf("%s=[%d,%d)", PartCategory(i), iv.Min, iv.Max)
-	}
-	return strings.Join(strs, ",")
-}
-
-func allAcceptedCombinations(rs RatingSystem) int {
-	return acceptedCombinations(rs, Action("in"), PartIntervals{
-		{1, 4001},
-		{1, 4001},
-		{1, 4001},
-		{1, 4001},
-	})
-}
-
-func acceptedCombinations(rs RatingSystem, action Action, partIntervals PartIntervals) int {
-	switch action {
-	case ActionAccept:
-		return partIntervals.Count()
-	case ActionReject:
-		return 0
-	}
-
-	var count int
-	for _, step := range rs.Workflows[string(action)] {
-		if step.IsUnconditional() {
-			count += acceptedCombinations(rs, step.Action, partIntervals)
-			break
-		}
-
-		l := partIntervals
-		r := partIntervals
-
-		switch step.Comparison {
-		case ComparisonLessThan:
-			l[step.Category].Max = step.Value
-			r[step.Category].Min = step.Value
-
-			partIntervals = r
-			count += acceptedCombinations(rs, step.Action, l)
-
-		case ComparisonGreaterThan:
-			l[step.Category].Min = step.Value + 1
-			r[step.Category].Max = step.Value + 1
-
-			partIntervals = r
-			count += acceptedCombinations(rs, step.Action, l)
-		}
-	}
-
-	return count
-}
-
-/*
 func allAcceptedCombinations(rs RatingSystem) int {
 	type queueItem struct {
-		workflow  string
+		action    Action
 		intervals PartIntervals
 	}
 
-	biggestPartIntervals := PartIntervals{
-		{1, 4001},
-		{1, 4001},
-		{1, 4001},
-		{1, 4001},
-	}
-
-	// var acceptedIntervals []PartIntervals
 	var count int
-	stack := []queueItem{{"in", biggestPartIntervals}}
-
-	debug := func() {
-		log.Println("debug:")
-		// log.Println("  accepted:")
-		// for _, partIntervals := range acceptedIntervals {
-		// 	log.Print("    ", partIntervals)
-		// }
-		log.Println("  queue:")
-		for _, item := range stack {
-			log.Printf("    %s: %s", item.workflow, item.intervals)
-		}
-	}
+	stack := []queueItem{{"in", PartIntervals{
+		{1, 4001},
+		{1, 4001},
+		{1, 4001},
+		{1, 4001},
+	}}}
 
 	for len(stack) > 0 {
-		debug()
 		item := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 
-	}
+		// Last step.
+		switch item.action {
+		case ActionAccept:
+			count += item.intervals.Count()
+		case ActionReject:
+		}
 
-	// log.Printf("acceptedIntervals: %d", len(acceptedIntervals))
-	//
-	// var count int
-	// for i, accepted := range acceptedIntervals {
-	// 	// log.Printf("%s (%d)", accepted, accepted.Count())
-	// 	// log.Println()
-	// 	count += accepted.Count()
-	// 	for _, accepted2 := range acceptedIntervals[:i] {
-	// 		// log.Printf("    %s", accepted)
-	// 		// log.Printf("  ∩ %s", accepted2)
-	// 		// log.Printf("    %s (%d)", accepted.Intersect(accepted2), accepted.Intersect(accepted2).Count())
-	// 		// log.Println()
-	// 		count -= accepted.Intersect(accepted2).Count()
-	// 	}
-	// }
+		for _, step := range rs.Workflows[string(item.action)] {
+			if step.IsUnconditional() {
+				stack = append(stack, queueItem{step.Action, item.intervals})
+				break
+			}
+
+			l := item.intervals
+			r := item.intervals
+			switch step.Comparison {
+			case ComparisonLessThan:
+				l[step.Category].Max = step.Value
+				r[step.Category].Min = step.Value
+			case ComparisonGreaterThan:
+				l[step.Category].Min = step.Value + 1
+				r[step.Category].Max = step.Value + 1
+			}
+
+			stack = append(stack, queueItem{step.Action, l})
+			item.intervals = r
+		}
+	}
 
 	return count
 }
-*/
 
 func part2(input string) int {
 	rs := parseInput(input)

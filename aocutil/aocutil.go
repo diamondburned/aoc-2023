@@ -3,13 +3,12 @@ package aocutil
 import (
 	"bufio"
 	"bytes"
-	"container/heap"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -600,34 +599,43 @@ func FieldsN(s string, n int) []string {
 	return parts
 }
 
+// CompareOrdered compares two ordered values. It returns 0 if they are equal, 1
+// if a > b, and -1 if a < b.
+func CompareOrdered[T constraints.Ordered](a, b T) int {
+	if a == b {
+		return 0
+	}
+	if a < b {
+		return -1
+	}
+	return 1
+}
+
+// ReverseCompare reverses the order of a compare function.
+func ReverseCompare[T any](compare func(T, T) int) func(T, T) int {
+	return func(a, b T) int {
+		return -compare(a, b)
+	}
+}
+
 // Sort sorts a slice of strings.
 func Sort[T constraints.Ordered](slice []T) {
-	sort.Sort(internalHeap[T]{
-		heap: slice,
-	})
+	slices.Sort(slice)
 }
 
 // SortReverse sorts a slice of strings in reverse order.
 func SortReverse[T constraints.Ordered](slice []T) {
-	sort.Sort(internalHeap[T]{
-		heap: slice,
-		opts: HeapOpts[T]{Max: true},
-	})
+	slices.SortFunc(slice, ReverseCompare(CompareOrdered[T]))
 }
 
 // IsSorted returns true if the slice is sorted.
 func IsSorted[T constraints.Ordered](slice []T) bool {
-	return sort.IsSorted(internalHeap[T]{
-		heap: slice,
-	})
+	return slices.IsSorted(slice)
 }
 
 // IsReverseSorted returns true if the slice is sorted in reverse order.
 func IsReverseSorted[T constraints.Ordered](slice []T) bool {
-	return sort.IsSorted(internalHeap[T]{
-		heap: slice,
-		opts: HeapOpts[T]{Max: true},
-	})
+	return slices.IsSortedFunc(slice, ReverseCompare(CompareOrdered[T]))
 }
 
 // Uniq returns a slice with all duplicate elements removed. It sorts the slice
@@ -677,160 +685,6 @@ func isUniqSet[T comparable](slice []T) bool {
 		set[v] = struct{}{}
 	}
 	return true
-}
-
-// Heap is a heap of ordered values.
-type Heap[T constraints.Ordered] internalHeap[T]
-
-type HeapOpts[T constraints.Ordered] struct {
-	// Less is a custom less function. If nil, min or max will be used. This
-	// takes precedence over Max.
-	Less func(a, b T) bool
-	// Max is true if the heap is a max heap. Largest values will be put first.
-	// Otherwise, the heap is a min heap.
-	Max bool
-	// Cap is the preallocated capacity of the heap.
-	Cap int
-	// Limit determines the behavior of Push when the heap is full. A zero-value
-	// sets no limit. If Max is true, the smallest value will be dropped. If Max
-	// is false, the largest value will be dropped.
-	Limit int
-}
-
-func (h HeapOpts[T]) less(a, b T) bool {
-	if h.Less != nil {
-		return h.Less(a, b)
-	}
-	if h.Max {
-		return a > b
-	}
-	return a < b
-}
-
-func (h HeapOpts[T]) more(a, b T) bool {
-	if h.Less != nil {
-		// https://pkg.go.dev/sort#Interface
-		if h.Less(a, b) {
-			// a < b
-			return false
-		}
-		if h.Less(b, a) {
-			// !(a < b) && b < a
-			// = a >= b && b < a
-			// = a > b
-			return true
-		}
-		// !(a < b) && !(b < a)
-		// = a >= b && b >= a
-		// = a == b
-		return false
-	}
-	if h.Max {
-		return a < b
-	}
-	return a > b
-}
-
-// NewMinHeap returns a new min heap.
-func NewMinHeap[T constraints.Ordered]() *Heap[T] {
-	return NewHeapOpts(HeapOpts[T]{Max: false})
-}
-
-// NewMaxHeap returns a new max heap.
-func NewMaxHeap[T constraints.Ordered]() *Heap[T] {
-	return NewHeapOpts(HeapOpts[T]{Max: true})
-}
-
-// NewHeapOpts creates a new heap with options.
-func NewHeapOpts[T constraints.Ordered](opts HeapOpts[T]) *Heap[T] {
-	if opts.Limit > 0 {
-		// Weird hack where if Limit > 0, we'll actually drop the smallest
-		// value for a min heap, which is weird. I'm not sure why this happens,
-		// but oh well.
-		opts.Max = !opts.Max
-	}
-
-	slice := make([]T, 0, opts.Cap)
-	h := internalHeap[T]{
-		heap: slice,
-		opts: opts,
-	}
-	heap.Init((*internalHeap[T])(&h))
-	return (*Heap[T])(&h)
-}
-
-// Push pushes a value onto the heap.
-func (h *Heap[T]) Push(v T) {
-	if h.opts.Limit == 0 || len(h.heap) < h.opts.Limit {
-		heap.Push((*internalHeap[T])(h), v)
-		return
-	}
-
-	min := h.heap[0]
-	if h.opts.more(v, min) {
-		h.Pop()
-		heap.Push((*internalHeap[T])(h), v)
-	}
-}
-
-// Pop pops a value from the heap.
-func (h *Heap[T]) Pop() T {
-	return heap.Pop((*internalHeap[T])(h)).(T)
-}
-
-// Fix fixes the heap after a value has been modified at the given index.
-func (h *Heap[T]) Fix(i int) {
-	heap.Fix((*internalHeap[T])(h), i)
-}
-
-// Len returns the number of items in the heap.
-func (h *Heap[T]) Len() int {
-	return len(h.heap)
-}
-
-// Sort sorts the internal heap slice
-func (h *Heap[T]) Sort() {
-	sort.Sort((*internalHeap[T])(h))
-}
-
-// ToSlice returns the underlying heap slice. The returned slice is not sorted.
-func (h *Heap[T]) ToSlice() []T {
-	return h.heap
-}
-
-type internalHeap[T constraints.Ordered] struct {
-	heap []T
-	opts HeapOpts[T]
-}
-
-var _ heap.Interface = (*internalHeap[int])(nil)
-var _ sort.Interface = (*internalHeap[int])(nil)
-
-func (h internalHeap[T]) Len() int {
-	return len(h.heap)
-}
-
-func (h internalHeap[T]) Less(i, j int) bool {
-	return h.opts.less(h.heap[i], h.heap[j])
-}
-
-func (h internalHeap[T]) Swap(i, j int) {
-	h.heap[i], h.heap[j] = h.heap[j], h.heap[i]
-}
-
-// Push pushes the element x onto the heap.
-func (h *internalHeap[T]) Push(x interface{}) {
-	h.heap = append(h.heap, x.(T))
-}
-
-// Pop removes the minimum element (according to Less) from the heap and returns
-// it.
-func (h *internalHeap[T]) Pop() interface{} {
-	old := h.heap
-	n := len(old)
-	x := old[n-1]
-	h.heap = old[0 : n-1]
-	return x
 }
 
 // Scanner is a scanner for a reader.

@@ -18,6 +18,14 @@ var (
 	VecRight = image.Pt(+1, 0)
 )
 
+// CardinalDirections is a list of cardinal directions.
+var CardinalDirections = []image.Point{
+	VecUp,
+	VecDown,
+	VecLeft,
+	VecRight,
+}
+
 // Map2D is a 2D map of bytes.
 type Map2D struct {
 	Data   [][]byte

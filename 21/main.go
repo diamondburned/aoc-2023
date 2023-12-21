@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/png"
 	"log"
-	"os"
 	"slices"
 
 	"github.com/diamondburned/aoc-2022/aocutil"
@@ -46,66 +44,12 @@ func parseInput(input string) Map {
 // At assumes the map is infinite in all directions.
 func (m Map) At(pt image.Point) byte {
 	if m.Infinite {
-		pt = m.loopPointBack(pt)
+		pt = image.Point{
+			X: aocutil.PositiveMod(pt.X, m.Bounds.Dx()),
+			Y: aocutil.PositiveMod(pt.Y, m.Bounds.Dy()),
+		}
 	}
 	return m.Map2D.At(pt)
-}
-
-func (m Map) loopPointBack(pt image.Point) image.Point {
-	return image.Point{
-		X: aocutil.PositiveMod(pt.X, m.Bounds.Dx()),
-		Y: aocutil.PositiveMod(pt.Y, m.Bounds.Dy()),
-	}
-}
-
-func (m Map) loopTileID(pt image.Point) image.Point {
-	return image.Point{
-		X: pt.X / m.Bounds.Dx(),
-		Y: pt.Y / m.Bounds.Dy(),
-	}
-}
-
-func (m Map) Clone() Map {
-	m.Map2D = m.Map2D.Clone()
-	return m
-}
-
-func (m Map) CountSteps(stepsNeeded int) []image.Point {
-	type nodeType struct {
-		pt    image.Point
-		steps int
-	}
-
-	queue := []nodeType{{m.Start, 0}}
-	var plots []image.Point
-
-	for len(queue) > 0 {
-		node := queue[0]
-		queue = queue[1:]
-		// log.Printf("node: %+v", node)
-
-		if node.steps == stepsNeeded {
-			plots = append(plots, node.pt)
-			continue
-		}
-
-		pt := node.pt
-
-		for _, dir := range aocutil.CardinalDirections {
-			pt := pt.Add(dir)
-			at := m.At(pt)
-			if at != GardenPlot && at != Start {
-				continue
-			}
-			next := nodeType{pt, node.steps + 1}
-			if slices.Contains(queue, next) {
-				continue
-			}
-			queue = append(queue, next)
-		}
-	}
-
-	return plots
 }
 
 func (m Map) TraverseSteps() aocutil.Iter2[int, []image.Point] {
@@ -115,20 +59,7 @@ func (m Map) TraverseSteps() aocutil.Iter2[int, []image.Point] {
 	}
 
 	type state uint8
-
-	const (
-		stateEven state = iota
-		stateOdd
-	)
-
-	calculateState := func(steps int) state {
-		return state(steps % 2)
-	}
-
-	type tileKey struct {
-		pt    image.Point
-		state state
-	}
+	calculateState := func(steps int) state { return state(steps % 2) }
 
 	type visitedKey struct {
 		pt    image.Point
@@ -141,24 +72,20 @@ func (m Map) TraverseSteps() aocutil.Iter2[int, []image.Point] {
 		var plotSteps int
 		var plots []image.Point
 		plotMap := aocutil.NewSet[image.Point](0)
-
-		visitedStates := make(map[visitedKey]bool)
-		// tileMap := make(map[tileKey]bool)
+		visited := aocutil.NewSet[visitedKey](0)
 
 		for len(queue) > 0 {
 			node := queue[0]
 			queue = queue[1:]
 			state := calculateState(node.steps)
-			// log.Printf("node: %+v", node)
 
-			if visitedStates[visitedKey{node.pt, state}] {
+			if !visited.Add(visitedKey{node.pt, state}) {
 				continue
 			}
-			visitedStates[visitedKey{node.pt, state}] = true
 
 			if node.steps != plotSteps {
 				// Finish up plot steps.
-				for k := range visitedStates {
+				for k := range visited {
 					if k.state == calculateState(plotSteps) && !plotMap.Has(k.pt) {
 						plotMap.Add(k.pt)
 						plots = append(plots, k.pt)
@@ -169,7 +96,7 @@ func (m Map) TraverseSteps() aocutil.Iter2[int, []image.Point] {
 				}
 				plotSteps = node.steps
 				plots = plots[:0]
-				plotMap = aocutil.NewSet[image.Point](cap(plots))
+				clear(plotMap)
 			}
 
 			if node.steps == plotSteps {
@@ -177,16 +104,13 @@ func (m Map) TraverseSteps() aocutil.Iter2[int, []image.Point] {
 				plotMap.Add(node.pt)
 			}
 
-			pt := node.pt
-
 			for _, dir := range aocutil.CardinalDirections {
-				pt := pt.Add(dir)
+				pt := node.pt.Add(dir)
 				at := m.At(pt)
-				if at != GardenPlot && at != Start {
-					continue
+				if at == GardenPlot || at == Start {
+					next := nodeType{pt, node.steps + 1}
+					queue = append(queue, next)
 				}
-				next := nodeType{pt, node.steps + 1}
-				queue = append(queue, next)
 			}
 		}
 	}
@@ -194,17 +118,12 @@ func (m Map) TraverseSteps() aocutil.Iter2[int, []image.Point] {
 
 func part1(input string) int {
 	m := parseInput(input)
-	m.Infinite = true
-	plots := m.CountSteps(64)
-	return len(plots)
-}
-
-func newBoundsFromPts(pts []image.Point) image.Rectangle {
-	var bounds image.Rectangle
-	for _, pt := range pts {
-		bounds = bounds.Union(image.Rectangle{pt, pt.Add(image.Point{1, 1})})
+	for steps, plots := range m.TraverseSteps() {
+		if steps == 64 {
+			return len(plots)
+		}
 	}
-	return bounds
+	panic("unreachable")
 }
 
 func part2(input string) int {
@@ -240,17 +159,18 @@ func part2(input string) int {
 	regression = aocutil.RoundedRegression(regression)
 	log.Printf("fitted polynomial function: %s", regression)
 
-	x := (target - start) / size
+	x := (target - start) / size // start = 65 + (131 * x)
 	y := aocutil.CalculateRegression(regression, x)
-	log.Printf("fitted result: F(%v) = %v", x, y)
+	log.Printf("fitted result: f(%v) = %v", x, y)
 
 	return y
 }
 
 func drawPlots(m Map, steps int, plots []image.Point) {
-	bounds := newBoundsFromPts(plots)
+	bounds := aocutil.RectangleContainingPoints(plots)
 	bounds.Min = bounds.Min.Sub(image.Point{1, 1})
 	bounds.Max = bounds.Max.Add(image.Point{1, 1})
+
 	steppedMap := aocutil.NewEmptyMap2D(bounds)
 	for pt := range aocutil.PointsWithin(bounds) {
 		steppedMap.Set(pt, m.At(pt))
@@ -258,31 +178,11 @@ func drawPlots(m Map, steps int, plots []image.Point) {
 	for _, pt := range plots {
 		steppedMap.Set(pt, 'O')
 	}
-	img := drawMap(steppedMap, map[byte]color.RGBA{
+
+	img := steppedMap.Draw(map[byte]color.RGBA{
 		'.': {0, 0, 0, 255},
 		'#': {255, 0, 0, 255},
 		'O': {255, 255, 255, 255},
 	})
-	f, _ := os.Create(fmt.Sprintf("output-%d.png", steps))
-	png.Encode(f, img)
-	f.Close()
-}
-
-func drawMap(m aocutil.Map2D, colorMap map[byte]color.RGBA) *image.Paletted {
-	palette := make(color.Palette, 1, 1+len(colorMap))
-	palette[0] = color.RGBA{0, 0, 0, 255}
-
-	colorIx := make(map[byte]uint8)
-	for k, v := range colorMap {
-		palette = append(palette, v)
-		colorIx[k] = uint8(len(palette) - 1)
-	}
-
-	img := image.NewPaletted(m.Bounds, palette)
-	for pt, v := range m.All() {
-		ix := colorIx[v]
-		img.SetColorIndex(pt.X, pt.Y, ix)
-	}
-
-	return img
+	aocutil.SaveImage(img, fmt.Sprintf("output-%d.png", steps))
 }

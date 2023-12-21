@@ -2,7 +2,12 @@ package aocutil
 
 import (
 	"bytes"
+	"fmt"
 	"image"
+	"image/color"
+	"image/png"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 )
@@ -104,6 +109,26 @@ func (m Map2D) String() string {
 	return sb.String()
 }
 
+// Draw draws the map to a paletted image.
+func (m Map2D) Draw(colorMap map[byte]color.RGBA) *image.Paletted {
+	palette := make(color.Palette, 1, 1+len(colorMap))
+	palette[0] = color.RGBA{0, 0, 0, 255}
+
+	colorIx := make(map[byte]uint8)
+	for k, v := range colorMap {
+		palette = append(palette, v)
+		colorIx[k] = uint8(len(palette) - 1)
+	}
+
+	img := image.NewPaletted(m.Bounds, palette)
+	for pt, v := range m.All() {
+		ix := colorIx[v]
+		img.SetColorIndex(pt.X, pt.Y, ix)
+	}
+
+	return img
+}
+
 // Equal returns true if the maps are equal.
 func (m Map2D) Equal(other Map2D) bool {
 	if m.Bounds != other.Bounds {
@@ -180,4 +205,24 @@ func PointsIterateDelta(r image.Rectangle, delta image.Point) Iter[image.Point] 
 			}
 		}
 	}
+}
+
+// SaveImage saves the given image to a PNG image.
+func SaveImage(img image.Image, dst string) {
+	if ext := filepath.Ext(dst); ext != ".png" {
+		panic(fmt.Errorf("invalid extension %q, only .png is supported", ext))
+	}
+	f := E2(os.Create(dst))
+	defer f.Close()
+	E1(png.Encode(f, img))
+}
+
+// RectangleContainingPoints returns the smallest rectangle that contains all
+// the given points. It takes the union of all the points.
+func RectangleContainingPoints(pts []image.Point) image.Rectangle {
+	var r image.Rectangle
+	for _, pt := range pts {
+		r = r.Union(image.Rectangle{Min: pt, Max: pt})
+	}
+	return r
 }

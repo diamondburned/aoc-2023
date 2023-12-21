@@ -1,6 +1,6 @@
 package main
 
-import "github.com/diamondburned/aoc-2022/aocutil"
+import "libdb.so/aoc-2023/aocutil"
 
 func main() {
 	aocutil.Run(part1, part2)
@@ -20,4 +20,3 @@ func part1(input string) int {
 func part2(input string) int {
 	return 0
 }
-

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/diamondburned/aoc-2022/aocutil"
 	"github.com/sourcegraph/conc/iter"
+	"libdb.so/aoc-2023/aocutil"
 )
 
 func main() {

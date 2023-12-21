@@ -1,4 +1,4 @@
-module github.com/diamondburned/aoc-2022
+module libdb.so/aoc-2023
 
 go 1.21
 

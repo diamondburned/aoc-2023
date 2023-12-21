@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/diamondburned/aoc-2022/aocutil"
+	"libdb.so/aoc-2023/aocutil"
 )
 
 // Broadcaster is the simplest module. It sends all signals it receives to all

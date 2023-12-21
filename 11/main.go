@@ -5,8 +5,8 @@ import (
 	"image"
 	"slices"
 
-	"github.com/diamondburned/aoc-2022/aocutil"
 	"golang.org/x/exp/constraints"
+	"libdb.so/aoc-2023/aocutil"
 )
 
 func main() {

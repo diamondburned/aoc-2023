@@ -5,7 +5,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/diamondburned/aoc-2022/aocutil"
+	"libdb.so/aoc-2023/aocutil"
 )
 
 func TestTotalValid(t *testing.T) {

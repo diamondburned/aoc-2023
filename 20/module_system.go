@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/diamondburned/aoc-2022/aocutil"
+	"libdb.so/aoc-2023/aocutil"
 )
 
 // ModuleSystemMetrics is a collection of metrics for a module system.

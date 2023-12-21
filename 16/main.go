@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/diamondburned/aoc-2022/aocutil"
+	"libdb.so/aoc-2023/aocutil"
 )
 
 func main() {

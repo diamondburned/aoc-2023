@@ -42,11 +42,25 @@ func NewMap2D(input string) Map2D {
 	return NewMap2DFromData(data)
 }
 
+func NewEmptyMap2D(bounds image.Rectangle) Map2D {
+	data := make([][]byte, bounds.Dy())
+	for i := range data {
+		data[i] = make([]byte, bounds.Dx())
+	}
+	m := NewMap2DFromData(data)
+	m.Bounds = bounds
+	return m
+}
+
 // NewMap2DFromData creates a new Map2D from the given data.
 func NewMap2DFromData(data [][]byte) Map2D {
 	m := Map2D{Data: data}
 	m.Bounds = image.Rect(0, 0, len(m.Data[0]), len(m.Data))
 	return m
+}
+
+func (m Map2D) pt(pt image.Point) image.Point {
+	return pt.Sub(m.Bounds.Min)
 }
 
 // At returns the byte at the given point. If the point is out of bounds, then
@@ -55,11 +69,16 @@ func (m Map2D) At(p image.Point) byte {
 	if !p.In(m.Bounds) {
 		return 0
 	}
+	p = m.pt(p)
 	return m.Data[p.Y][p.X]
 }
 
 // Set sets the byte at the given point.
 func (m Map2D) Set(p image.Point, b byte) {
+	if !p.In(m.Bounds) {
+		return
+	}
+	p = m.pt(p)
 	m.Data[p.Y][p.X] = b
 }
 
@@ -124,7 +143,8 @@ func (m Map2D) AllWithin(r image.Rectangle) Iter2[image.Point, byte] {
 	return func(yield func(image.Point, byte) bool) {
 		for y := r.Min.Y; y < r.Max.Y; y++ {
 			for x := r.Min.X; x < r.Max.X; x++ {
-				if !yield(image.Pt(x, y), m.Data[y][x]) {
+				pt := image.Pt(x, y)
+				if !yield(pt, m.At(pt)) {
 					return
 				}
 			}

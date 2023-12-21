@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/aclements/go-moremath/fit"
@@ -29,8 +30,13 @@ import (
 var silent atomic.Bool
 
 func init() {
-	log.SetFlags(log.Ltime | log.Lmicroseconds | log.Lmsgprefix)
-	log.SetPrefix("⎸ ")
+	w := &logPrefixedWriter{
+		lastTime: time.Now(),
+		noColors: false,
+	}
+
+	log.SetFlags(0)
+	log.SetOutput(w)
 
 	if !testing.Testing() {
 		silent_ := flag.Bool("s", false, "suppress output")
@@ -41,6 +47,26 @@ func init() {
 	if silent.Load() {
 		SilenceLogging()
 	}
+}
+
+type logPrefixedWriter struct {
+	lastTime time.Time
+	noColors bool
+}
+
+func (w *logPrefixedWriter) Write(b []byte) (n int, err error) {
+	now := time.Now()
+	d := now.Sub(w.lastTime)
+	w.lastTime = now
+
+	const f1 = "+% 3d.%06ds ⎸ "
+	const f2 = "\033[38;5;248m" + f1 + "\033[0m"
+	pf := f2
+	if w.noColors {
+		pf = f1
+	}
+	p := fmt.Sprintf(pf, int(d.Seconds()), int(d.Microseconds())%1000000)
+	return writePrefixed(os.Stderr, b, []byte(p+""+log.Prefix()))
 }
 
 // ScopeLogf enters a log scope.
@@ -745,7 +771,6 @@ func MapPairs[K comparable, V any](m map[K]V) []Pair[K, V] {
 type prefixedWriter struct {
 	w io.Writer
 	p []byte
-	b bool
 }
 
 // PrefixedWriter returns a writer that prefixes each line with the given
@@ -763,24 +788,29 @@ func PrefixedStdout(prefix string) io.Writer {
 }
 
 func (w *prefixedWriter) Write(b []byte) (int, error) {
+	return writePrefixed(w.w, b, w.p)
+}
+
+func writePrefixed(dst io.Writer, b, prefix []byte) (int, error) {
 	var total int
+	var prefixed bool
 	for _, line := range bytes.SplitAfter(b, []byte("\n")) {
-		if !w.b {
-			_, err := w.w.Write(w.p)
+		if len(line) > 0 && !prefixed {
+			_, err := dst.Write(prefix)
 			if err != nil {
 				return 0, err
 			}
-			w.b = true
+			prefixed = true
 		}
 
-		n, err := w.w.Write(line)
+		n, err := dst.Write(line)
 		if err != nil {
 			return total, err
 		}
 		total += n
 
 		if bytes.HasSuffix(line, []byte("\n")) {
-			w.b = false
+			prefixed = false
 		}
 	}
 

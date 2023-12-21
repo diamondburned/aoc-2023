@@ -32,10 +32,9 @@ func AcyclicDFS[T comparable](root T, children func(T) []T) Iter[T] {
 			node := stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
 
-			if seen.Has(node) {
+			if !seen.Add(node) {
 				continue
 			}
-			seen.Add(node)
 
 			if !yield(node) {
 				break
@@ -89,10 +88,9 @@ func AcyclicBFS[T comparable](root T, children func(T) []T) Iter[T] {
 			queue[0] = z
 			queue = slices.Delete(queue, 0, 1)
 
-			if seen.Has(node) {
+			if !seen.Add(node) {
 				continue
 			}
-			seen.Add(node)
 
 			if !yield(node) {
 				break

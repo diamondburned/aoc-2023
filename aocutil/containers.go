@@ -28,7 +28,12 @@ func NewSetFromSlice[T comparable](v []T) Set[T] {
 }
 
 // Add adds the given value to the set.
-func (s Set[T]) Add(v T) { s[v] = struct{}{} }
+// True is returned if the value was added, false if it already existed.
+func (s Set[T]) Add(v T) bool {
+	_, ok := s[v]
+	s[v] = struct{}{}
+	return !ok
+}
 
 // Delete deletes the given value from the set.
 func (s Set[T]) Delete(v T) { delete(s, v) }

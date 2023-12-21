@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"slices"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/aclements/go-moremath/fit"
 	"github.com/mohae/deepcopy"
 	"golang.org/x/exp/constraints"
 	"gonum.org/v1/gonum/stat/combin"
@@ -836,4 +838,48 @@ func Combinations[T any](slice []T, k int) Iter[[]T] {
 			}
 		}
 	}
+}
+
+// WaitForKeypress waits for a keypress.
+func WaitForKeypress() byte {
+	fmt.Print("Press any key to continue...")
+	var b [1]byte
+	E2(os.Stdin.Read(b[:]))
+	fmt.Println()
+	return b[0]
+}
+
+// PositiveMod returns the positive modulus of k and n.
+// It works if k is both positive and negative.
+func PositiveMod[T constraints.Integer](k, n T) T {
+	return (k%n + n) % n
+}
+
+// Polyfit returns the coefficients of the polynomial of degree degree that
+// fits the points (xs[i], ys[i]) for i = 0, ..., len(xs) - 1.
+func Polyfit(xs, ys []float64, degree int) fit.PolynomialRegressionResult {
+	return fit.PolynomialRegression(xs, ys, nil, degree)
+}
+
+// RoundedRegression rounds the coefficients of the given polynomial
+// regression result.
+func RoundedRegression(res fit.PolynomialRegressionResult) fit.PolynomialRegressionResult {
+	res.Coefficients = Map(res.Coefficients, math.Round)
+	return res
+}
+
+// CalculateRegression casts the coefficients of the given polynomial
+// regression result to any signed type and calculates the value of the
+// polynomial at x. This function is useful when the coefficients are
+// calculated using floating-point arithmetic and the result needs to be
+// calculated using integer arithmetic.
+func CalculateRegression[T constraints.Signed](res fit.PolynomialRegressionResult, x T) T {
+	coeffs := Map(res.Coefficients, func(f float64) T { return T(f) })
+	y := coeffs[0]
+	xp := x
+	for _, c := range coeffs[1:] {
+		y += xp * c
+		xp *= x
+	}
+	return y
 }

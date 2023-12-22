@@ -211,6 +211,8 @@ func (bs Bricks) DropAllBricks() int {
 }
 
 func (bs Bricks) Render() image.Image {
+	const strokeSize = 0.05
+
 	var maxPt Point3D
 	for _, b := range bs {
 		maxPt.X = max(maxPt.X, b.Max.X)
@@ -232,7 +234,7 @@ func (bs Bricks) Render() image.Image {
 		color.RGBA{0x00, 0x00, 0xff, 0xff},
 	}
 	for i, b := range bs {
-		const fontScale = 0.5
+		const fontScale = 0.5 * strokeSize
 		world.Begin()
 		world.DrawString(
 			(float64(b.Min.X)+(float64(b.Max.X-b.Min.X)/2))/worldBounds/fontScale,
@@ -266,12 +268,13 @@ func (bs Bricks) Render() image.Image {
 		world.End()
 	}
 	// world.Translate(-0.2, 0, -0.35)
-	world.Translate(-0.1, 0.5, -0.35)
+	// world.Translate(-0.1, 0.5, -0.35)
+	world.Translate(0, 0.65, -0.35)
 	world.Rotate(-math.Pi/2.25, 0, 0)
 
-	return world.Image(1500, 1500, &pinhole.ImageOptions{
+	return world.Image(5000, 5000, &pinhole.ImageOptions{
 		BGColor:   color.White,
-		LineWidth: 0.15,
+		LineWidth: strokeSize,
 		Scale:     1,
 	})
 }

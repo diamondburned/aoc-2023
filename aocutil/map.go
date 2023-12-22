@@ -2,12 +2,8 @@ package aocutil
 
 import (
 	"bytes"
-	"fmt"
 	"image"
 	"image/color"
-	"image/png"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 )
@@ -205,16 +201,6 @@ func PointsIterateDelta(r image.Rectangle, delta image.Point) Iter[image.Point] 
 			}
 		}
 	}
-}
-
-// SaveImage saves the given image to a PNG image.
-func SaveImage(img image.Image, dst string) {
-	if ext := filepath.Ext(dst); ext != ".png" {
-		panic(fmt.Errorf("invalid extension %q, only .png is supported", ext))
-	}
-	f := E2(os.Create(dst))
-	defer f.Close()
-	E1(png.Encode(f, img))
 }
 
 // RectangleContainingPoints returns the smallest rectangle that contains all

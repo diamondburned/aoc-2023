@@ -1,9 +1,9 @@
 package main
 
-import "libdb.so/aoc-2023/aocutil"
+import . "libdb.so/aoc-2023/aocutil"
 
 func main() {
-	aocutil.Run(part1, part2)
+	Run(part1, part2)
 }
 
 type T struct {

@@ -14,6 +14,34 @@ func (i Iter[T]) All() []T {
 	return vs
 }
 
+// ContainsFunc returns true if the iterator contains a value that satisfies the
+// given function.
+func (i Iter[T]) ContainsFunc(eq func(T) bool) bool {
+	for x := range i {
+		if eq(x) {
+			return true
+		}
+	}
+	return false
+}
+
+// Any returns true if the iterator contains any value.
+func (i Iter[T]) Any() bool {
+	for _ = range i {
+		return true
+	}
+	return false
+}
+
+// Count returns the number of items in the iterator.
+func (i Iter[T]) Count() int {
+	var n int
+	for _ = range i {
+		n++
+	}
+	return n
+}
+
 // Iter2 copies x/exp/xiter.
 type Iter2[T1, T2 any] func(yield func(T1, T2) bool)
 

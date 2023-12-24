@@ -29,6 +29,11 @@ import (
 
 var silent atomic.Bool
 
+var (
+	part1Only = false
+	part2Only = false
+)
+
 func init() {
 	w := &logPrefixedWriter{
 		lastTime: time.Now(),
@@ -40,6 +45,8 @@ func init() {
 
 	if !testing.Testing() {
 		silent_ := flag.Bool("s", false, "suppress output")
+		flag.BoolVar(&part1Only, "1", false, "run only part 1")
+		flag.BoolVar(&part2Only, "2", false, "run only part 2")
 		flag.Parse()
 		silent.Store(*silent_)
 	}
@@ -94,16 +101,30 @@ func SilenceLogging() {
 // Run runs the given functions with the stdin input.
 func Run(p1, p2 func(string) int) {
 	input := ReadStdin()
-	fmt.Println(p1(input))
-	fmt.Println(p2(input))
+	switch {
+	case part1Only:
+		fmt.Println(p1(input))
+	case part2Only:
+		fmt.Println(p2(input))
+	default:
+		fmt.Println(p1(input))
+		fmt.Println(p2(input))
+	}
 }
 
 // ParseAndRun runs the given functions with the input after parsing it.
 func ParseAndRun[T any](parse func(string) T, p1, p2 func(T) int) {
 	input := ReadStdin()
 	value := parse(input)
-	fmt.Println(p1(value))
-	fmt.Println(p2(value))
+	switch {
+	case part1Only:
+		fmt.Println(p1(value))
+	case part2Only:
+		fmt.Println(p2(value))
+	default:
+		fmt.Println(p1(value))
+		fmt.Println(p2(value))
+	}
 }
 
 // ReadFile reads a file into a string, panicking if it fails.
@@ -565,7 +586,7 @@ func Clamp[T constraints.Ordered](n, min, max T) T {
 }
 
 // Abs returns the absolute value of n.
-func Abs[T constraints.Integer | constraints.Float](n T) T {
+func Abs[T constraints.Integer | constraints.Float | constraints.Signed](n T) T {
 	if n < 0 {
 		return -n
 	}
@@ -860,6 +881,35 @@ func Combinations[T any](slice []T, k int) Iter[[]T] {
 	return func(yield func([]T) bool) {
 		for gen.Next() {
 			combinations := gen.Combination(dst)
+			for i, j := range combinations {
+				buf[i] = slice[j]
+			}
+			if !yield(buf[:len(combinations)]) {
+				return
+			}
+		}
+	}
+}
+
+// PairCombinations returns all combinations of pairs from the given slice.
+func PairCombinations[T any](slice []T) Iter2[T, T] {
+	return func(yield func(T, T) bool) {
+		for pair := range Combinations(slice, 2) {
+			if !yield(pair[0], pair[1]) {
+				return
+			}
+		}
+	}
+}
+
+// Permutations returns all permutations of k elements from the given slice.
+func Permutations[T any](slice []T, k int) Iter[[]T] {
+	gen := combin.NewPermutationGenerator(len(slice), k)
+	dst := make([]int, k)
+	buf := make([]T, k)
+	return func(yield func([]T) bool) {
+		for gen.Next() {
+			combinations := gen.Permutation(dst)
 			for i, j := range combinations {
 				buf[i] = slice[j]
 			}

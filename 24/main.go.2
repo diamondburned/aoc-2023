@@ -1,0 +1,201 @@
+package main
+
+import (
+	"fmt"
+	"log"
+
+	. "libdb.so/aoc-2023/aocutil"
+)
+
+func main() {
+	Run(part1, part2)
+}
+
+type FlyingHailstone struct {
+	// For a point:
+	// - x(t) = P.X + t * V.X
+	// - y(t) = P.Y + t * V.Y
+	// - z(t) = P.Z + t * V.Z
+	// Therefore:
+	// - t = (x - P.X) / V.X
+	// - t = (y - P.Y) / V.Y
+	// - t = (z - P.Z) / V.Z
+
+	P Point3D[float64]
+	V Point3D[float64]
+}
+
+func parseInput(input string) []FlyingHailstone {
+	const f = `%d, %d, %d @ %d, %d, %d`
+	lines := SplitLines(input)
+	hailstones := make([]FlyingHailstone, len(lines))
+	for i, line := range lines {
+		var x, y, z, vx, vy, vz int
+		fmt.Sscanf(line, f, &x, &y, &z, &vx, &vy, &vz)
+		p := Pt3(float64(x), float64(y), float64(z))
+		v := Pt3(float64(vx), float64(vy), float64(vz))
+		hailstones[i] = FlyingHailstone{
+			P: p,
+			V: v,
+		}
+	}
+	return hailstones
+}
+
+func (h FlyingHailstone) ToLine() Line3D[float64] {
+	return Line3D[float64]{
+		Start: h.P,
+		End:   h.P.Add(h.V),
+	}
+}
+
+func solveLine(p, v, result Point3D[float64]) (t Point3D[float64]) {
+	t.X = (result.X - p.X) / v.X
+	t.Y = (result.Y - p.Y) / v.Y
+	t.Z = (result.Z - p.Z) / v.Z
+	return
+}
+
+func pt3DTo2D(p Point3D[float64]) Point[float64] {
+	return p.RemoveZ()
+}
+
+// ptIsBeforeLine returns true if a 2D point is behind the line.
+// It assumes that the point is on the line.
+func ptIsBeforeLine(line Line[float64], pt Point[float64]) bool {
+	v1 := line.End.Sub(line.Start)
+	v2 := pt.Sub(line.Start)
+	return v1.Dot(v2) < 0
+}
+
+type boundedHailstone struct {
+	FlyingHailstone
+	T Interval[float64]
+}
+
+func newBoundedHailstone(h FlyingHailstone, min, max Point3D[float64]) boundedHailstone {
+	var t3 [3]Interval[float64]
+	p3 := [3]float64{h.P.X, h.P.Y, h.P.Z}
+	v3 := [3]float64{h.V.X, h.V.Y, h.V.Z}
+	min3 := [3]float64{min.X, min.Y, min.Z}
+	max3 := [3]float64{max.X, max.Y, max.Z}
+	for i := 0; i < 3; i++ {
+		tx := &t3[i]
+		p := p3[i]
+		v := v3[i]
+		min := min3[i]
+		max := max3[i]
+		switch {
+		case min <= p && p <= max:
+			if h.V.X > 0 {
+				tx.End = (max - p) / v
+			} else {
+				tx.End = (min - p) / v
+			}
+		case min > p:
+			tx.Start = (min - p) / v
+			tx.End = (max - p) / v
+		case max < p:
+			tx.Start = (max - p) / v
+			tx.End = (min - p) / v
+		default:
+			panic("unreachable")
+		}
+	}
+
+	tx := t3[0].Canon()
+	ty := t3[1].Canon()
+
+	log.Printf("for hailstone %+v:", h)
+	log.Printf("  tx: %v", tx)
+	log.Printf("  ty: %v", ty)
+	log.Printf("  tx.Intersect(ty): %v", tx.Intersect(ty))
+
+	return boundedHailstone{
+		FlyingHailstone: h,
+		T:               tx.Intersect(ty),
+	}
+}
+
+func part1(input string) int {
+	hailstones := parseInput(input)
+
+	boundsMinValue := 7.0
+	boundsMaxValue := 27.0
+	if len(hailstones) >= 300 {
+		// real input so use real bounds
+		boundsMinValue = 200_000_000_000_000.0
+		boundsMaxValue = 400_000_000_000_000.0
+	}
+
+	boundsMin := Pt3[float64](boundsMinValue, boundsMinValue, boundsMinValue)
+	boundsMax := Pt3[float64](boundsMaxValue, boundsMaxValue, boundsMaxValue)
+
+	var count int
+
+	// hailstones = Filter(hailstones, func(h FlyingHailstone) bool {
+	// 	p := h.P
+	// 	v := h.V
+	// 	return true &&
+	// 		// Ensure that the hailstone ray will intersect the bounds.
+	// 		!((p.X < boundsMin.X && v.X < 0) || (p.X > boundsMax.X && v.X > 0)) &&
+	// 		!((p.Y < boundsMin.Y && v.Y < 0) || (p.Y > boundsMax.Y && v.Y > 0))
+	// })
+
+	// boundedHailstones := Map(hailstones, func(h FlyingHailstone) boundedHailstone {
+	// 	return newBoundedHailstone(h,
+	// 		boundsMin,
+	// 		boundsMax,
+	// 	)
+	// })
+	// boundedHailstones = Filter(boundedHailstones, func(h boundedHailstone) bool {
+	// 	log.Printf("bounded hailstone %+v, T: %v", h.FlyingHailstone, h.T)
+	// 	return h.T.Length() > 0
+	// })
+	//
+	// var count int
+	// for pair := range Combinations(boundedHailstones, 2) {
+	// 	i := pair[0]
+	// 	j := pair[1]
+	// 	log.Printf("for hailstones %+v and %+v:", i.FlyingHailstone, j.FlyingHailstone)
+	//
+	// 	tᵢⱼ := i.T.Intersect(j.T)
+	//
+	// 	t := (j.P.X - i.P.X) / (i.V.X - j.V.X)
+	// 	log.Printf("  t: %v", t)
+	// 	if !tᵢⱼ.Contains(t) {
+	// 		continue
+	// 	}
+	//
+	// 	tᵢᵧ := i.P.Y + i.V.Y*t
+	// 	tⱼᵧ := j.P.Y + j.V.Y*t
+	// 	log.Printf("  tᵢᵧ: %v", tᵢᵧ)
+	// 	log.Printf("  tⱼᵧ: %v", tⱼᵧ)
+	// 	if tᵢᵧ != tⱼᵧ {
+	// 		continue
+	// 	}
+	//
+	// 	count++
+	// }
+
+	for a, b := range PairCombinations(hailstones) {
+		a2d := a.ToLine().RemoveZ()
+		b2d := b.ToLine().RemoveZ()
+
+		i, intersection := a2d.RayIntersection(b2d)
+		if intersection == NoIntersection {
+			continue
+		}
+		if !i.WithinInclusive(boundsMin.RemoveZ(), boundsMax.RemoveZ()) {
+			continue
+		}
+
+		count++
+	}
+
+	return count
+}
+
+func part2(input string) int {
+	return 0
+}

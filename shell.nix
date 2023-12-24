@@ -71,6 +71,8 @@ pkgs.mkShell {
 		gopls
 		gotools
 		go-tools
+		sage
+		libqalculate
 	];
 
 	GOEXPERIMENT = "loopvar,range";

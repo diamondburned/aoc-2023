@@ -62,8 +62,8 @@ func part1(input string) int {
 		boundsMaxValue = 400_000_000_000_000.0
 	}
 
-	boundsMin := Pt3[float64](boundsMinValue, boundsMinValue, boundsMinValue)
-	boundsMax := Pt3[float64](boundsMaxValue, boundsMaxValue, boundsMaxValue)
+	boundsMin := Pt[float64](boundsMinValue, boundsMinValue)
+	boundsMax := Pt[float64](boundsMaxValue, boundsMaxValue)
 
 	var count int
 
@@ -72,10 +72,7 @@ func part1(input string) int {
 		b2d := b.ToLine().RemoveZ()
 
 		i, intersection := a2d.RayIntersection(b2d)
-		if intersection == NoIntersection {
-			continue
-		}
-		if !i.WithinInclusive(boundsMin.RemoveZ(), boundsMax.RemoveZ()) {
+		if intersection == NoIntersection || !i.WithinInclusive(boundsMin, boundsMax) {
 			continue
 		}
 
@@ -140,10 +137,13 @@ func part2(input string) int {
 	}
 
 	expr := fmt.Sprintf(
-		`var('%[1]s')
-		 print(solve([%[2]s], [%[1]s])[0])`,
+		strings.Join([]string{
+			`var('%s')`,
+			`print(solve([%s], [%s])[0])`,
+		}, "\n"),
 		strings.Join(vars, " "),
-		strings.Join(eqns, ", "))
+		strings.Join(eqns, ", "),
+		strings.Join(vars, ", "))
 
 	out := sage(expr)
 	var p Point3D[int]

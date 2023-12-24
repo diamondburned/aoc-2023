@@ -25,6 +25,16 @@ func (i Iter[T]) ContainsFunc(eq func(T) bool) bool {
 	return false
 }
 
+func (i Iter[T]) Filter(f func(T) bool) Iter[T] {
+	return func(yield func(T) bool) {
+		for x := range i {
+			if f(x) && !yield(x) {
+				break
+			}
+		}
+	}
+}
+
 // Any returns true if the iterator contains any value.
 func (i Iter[T]) Any() bool {
 	for _ = range i {
@@ -96,6 +106,28 @@ func Range[T constraints.Integer | constraints.Float](start, end T) Iter[T] {
 	return func(yield func(T) bool) {
 		for i := start; i < end; i++ {
 			if !yield(i) {
+				break
+			}
+		}
+	}
+}
+
+// IterContains returns true if the iterator contains the value.
+func IterContains[T comparable](iter Iter[T], v T) bool {
+	for x := range iter {
+		if x == v {
+			return true
+		}
+	}
+	return false
+}
+
+// IterateReverse returns an iterator that yields the items in the slice in
+// reverse order.
+func IterateReverse[T any](slice []T) Iter[T] {
+	return func(yield func(T) bool) {
+		for i := len(slice) - 1; i >= 0; i-- {
+			if !yield(slice[i]) {
 				break
 			}
 		}
